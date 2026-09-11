@@ -6,9 +6,8 @@ import { getProducts } from "@/services/productService";
 import { formatRD } from "@/utils/currencyUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
-  Dimensions,
   Image,
   Modal,
   Pressable,
@@ -54,9 +53,21 @@ const PROMO_BANNERS = [
     badge: "CRÉDITO FLEXIBLE",
     icon: "cash",
   },
+
+  
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const QUANTITY_OPTIONS = [
+  { fundas: 100, label: "4.25 t (100 fundas)" },
+  { fundas: 200, label: "8.5 t (200 fundas)" },
+  { fundas: 300, label: "12.75 t (300 fundas)" },
+  { fundas: 400, label: "17 t (400 fundas)" },
+  { fundas: 500, label: "20.25 t (500 fundas)" },
+  { fundas: 600, label: "25.5 t (600 fundas)" },
+  { fundas: 1000, label: "42.5 t (1000 fundas)" },
+];
+
+//const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const ClientHomeScreen: React.FC = () => {
   const [search, setSearch] = useState("");
@@ -272,77 +283,33 @@ const ClientHomeScreen: React.FC = () => {
               {selectedProductForQty ? formatRD(selectedProductForQty.price) : ""} c/u
             </Text>
 
-            {/* Selector con pasos de 100 en 100 (Máximo 1,000) */}
-            <View style={styles.qtyControlRow}>
-              <TouchableOpacity
-                style={styles.qtyButton}
-                onPress={() => {
-                  const current = parseInt(quantity, 10) || 100;
-                  const val = Math.max(100, current - 100);
-                  setQuantity(String(val));
-                }}
-              >
-                <Text style={styles.qtyBtnStepText}>-100</Text>
-              </TouchableOpacity>
+              {/* Título de opciones fijas */}
+            <Text style={styles.optionsSectionTitle}>Cantidad / Toneladas:</Text>
 
-              <TextInput
-                style={styles.qtyInput}
-                keyboardType="numeric"
-                value={quantity}
-                onChangeText={(t) => {
-                  const digits = t.replace(/[^0-9]/g, "");
-                  if (!digits) {
-                    setQuantity("");
-                    return;
-                  }
-                  let num = parseInt(digits, 10);
-                  if (num > 1000) num = 1000;
-                  setQuantity(String(num));
-                }}
-              />
-
-              <TouchableOpacity
-                style={styles.qtyButton}
-                onPress={() => {
-                  const current = parseInt(quantity, 10) || 0;
-                  const val = Math.min(1000, current + 100);
-                  setQuantity(String(val));
-                }}
-              >
-                <Text style={styles.qtyBtnStepText}>+100</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Accesos rápidos de selección por volumen (Máximo 1,000 por pedido) */}
-            <View style={styles.quickPresetRow}>
-              <TouchableOpacity
-                style={styles.presetChip}
-                onPress={() => {
-                  const current = parseInt(quantity, 10) || 0;
-                  setQuantity(String(Math.min(1000, current + 100)));
-                }}
-              >
-                <Text style={styles.presetChipText}>+100</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.presetChip}
-                onPress={() => {
-                  const current = parseInt(quantity, 10) || 0;
-                  setQuantity(String(Math.min(1000, current + 250)));
-                }}
-              >
-                <Text style={styles.presetChipText}>+250</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.presetChip}
-                onPress={() => {
-                  setQuantity("1000");
-                }}
-              >
-                <Text style={styles.presetChipText}>1,000 (Máx)</Text>
-              </TouchableOpacity>
+            {/* Grid de opciones fijas disponibles */}
+            <View style={styles.optionsGrid}>
+              {QUANTITY_OPTIONS.map((opt) => {
+                const isSelected = parseInt(quantity, 10) === opt.fundas;
+                return (
+                  <TouchableOpacity
+                    key={opt.fundas}
+                    style={[
+                      styles.fixedOptionChip,
+                      isSelected && styles.fixedOptionChipSelected,
+                    ]}
+                    onPress={() => setQuantity(String(opt.fundas))}
+                  >
+                    <Text
+                      style={[
+                        styles.fixedOptionText,
+                        isSelected && styles.fixedOptionTextSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <Text style={styles.subtotalText}>
@@ -614,25 +581,53 @@ const styles = StyleSheet.create({
     color: "#0F294A",
     backgroundColor: "#FAF8F5",
   },
-  quickPresetRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
-  },
-  presetChip: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  presetChipText: {
-    fontSize: 13,
+   optionsSectionTitle: {
+    fontSize: 15,
     fontWeight: "bold",
-    color: "#E31E24",
+    color: "#0F294A",
+    alignSelf: "flex-start",
+    marginBottom: 12,
   },
-  subtotalText: {
+  optionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    width: "100%",
+    rowGap: 10,
+    marginBottom: 18,
+  },
+  fixedOptionChip: {
+    width: "48%",
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+  },
+  fixedOptionChipSelected: {
+    backgroundColor: "#0F294A",
+    borderColor: "#0F294A",
+    shadowColor: "#0F294A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fixedOptionText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#475569",
+    textAlign: "center",
+  },
+  fixedOptionTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+
+    subtotalText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#334155",

@@ -7,9 +7,9 @@ import { CartContext } from "@/context/cartContext";
 import { useLoading } from "@/context/loadingContext";
 import { createOrder } from "@/services/orderService";
 import { formatRD } from "@/utils/currencyUtils";
-import { useFocusEffect, useRouter } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useContext, useState } from "react";
 import {
   Image,
@@ -104,7 +104,9 @@ const CartScreen: React.FC = () => {
   const [reference, setReference] = useState("");
 
   // Opciones de pago (Transferencia / Crédito)
-  const [paymentMethod, setPaymentMethod] = useState<"transfer" | "credit">("transfer");
+  const [paymentMethod, setPaymentMethod] = useState<"transfer" | "credit">(
+    "transfer",
+  );
   const [selectedBankId, setSelectedBankId] = useState("banreservas");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [creditNote, setCreditNote] = useState<string>("");
@@ -120,10 +122,11 @@ const CartScreen: React.FC = () => {
       setSelectedBankId("banreservas");
       setReceiptImage(null);
       setCreditNote("");
-    }, [])
+    }, []),
   );
 
-  const selectedBank = BANK_ACCOUNTS.find((b) => b.id === selectedBankId) || BANK_ACCOUNTS[0];
+  const selectedBank =
+    BANK_ACCOUNTS.find((b) => b.id === selectedBankId) || BANK_ACCOUNTS[0];
 
   const handleSelectDeliveryAddress = (addressDesc: string) => {
     setSelectedDeliveryAddress(addressDesc);
@@ -132,7 +135,7 @@ const CartScreen: React.FC = () => {
       return;
     }
     const fullAddress = user?.addresses?.find(
-      (addr) => addr?.description === addressDesc
+      (addr) => addr?.description === addressDesc,
     );
     if (!fullAddress) {
       setDeliveries([]);
@@ -254,7 +257,7 @@ const CartScreen: React.FC = () => {
         address: d.address,
         quantity: p.fundas,
         unit: "fundas",
-      }))
+      })),
     );
 
     const formattedItems = Object.values(groupedCart).map((item) => {
@@ -278,7 +281,8 @@ const CartScreen: React.FC = () => {
       finalComments = `Transferencia Bancaria a ${selectedBank.bankName} (No. ${selectedBank.accountNumber}, RNC: ${selectedBank.rnc})`;
       if (receiptImage) finalComments += " - Comprobante adjunto";
     } else {
-      finalComments = "Pago a Crédito" + (creditNote ? ` - Nota: ${creditNote}` : "");
+      finalComments =
+        "Pago a Crédito" + (creditNote ? ` - Nota: ${creditNote}` : "");
     }
     if (reference) {
       finalComments += `. Observación: ${reference}`;
@@ -345,7 +349,9 @@ const CartScreen: React.FC = () => {
           {cart.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="cart-outline" size={64} color="#CBD5E1" />
-              <Text style={styles.emptyText}>No hay productos en tu carrito.</Text>
+              <Text style={styles.emptyText}>
+                No hay productos en tu carrito.
+              </Text>
             </View>
           ) : (
             <View style={styles.list}>
@@ -358,7 +364,11 @@ const CartScreen: React.FC = () => {
                       style={styles.deleteItemBtn}
                       onPress={() => removeFromCart(item.id)}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#E31E24" />
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color="#E31E24"
+                      />
                       <Text style={styles.deleteItemBtnText}>Borrar</Text>
                     </TouchableOpacity>
                   </View>
@@ -379,7 +389,8 @@ const CartScreen: React.FC = () => {
                         }
                         style={[
                           styles.tonButton,
-                          item.fundas === option.fundas && styles.tonButtonActive,
+                          item.fundas === option.fundas &&
+                            styles.tonButtonActive,
                         ]}
                       >
                         <Text
@@ -397,7 +408,9 @@ const CartScreen: React.FC = () => {
                   <Text style={styles.subtotalItemText}>
                     Subtotal del producto:{" "}
                     <Text style={{ fontWeight: "bold", color: "#E31E24" }}>
-                      {formatRD((item.fundas || 1) * item.basePrice * item.quantity)}
+                      {formatRD(
+                        (item.fundas || 1) * item.basePrice * item.quantity,
+                      )}
                     </Text>
                   </Text>
                 </View>
@@ -458,7 +471,9 @@ const CartScreen: React.FC = () => {
                         <View key={idx} style={styles.deliveryCard}>
                           <Text style={styles.deliveryAddress}>
                             {delivery.address.description}
-                            {delivery.address.additionalInfo ? `, ${delivery.address.additionalInfo}` : ""}
+                            {delivery.address.additionalInfo
+                              ? `, ${delivery.address.additionalInfo}`
+                              : ""}
                           </Text>
                         </View>
                       ))}
@@ -473,7 +488,8 @@ const CartScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[
                     styles.paymentOptionTab,
-                    paymentMethod === "transfer" && styles.paymentOptionTabActive,
+                    paymentMethod === "transfer" &&
+                      styles.paymentOptionTabActive,
                   ]}
                   onPress={() => setPaymentMethod("transfer")}
                 >
@@ -485,7 +501,8 @@ const CartScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.paymentOptionText,
-                      paymentMethod === "transfer" && styles.paymentOptionTextActive,
+                      paymentMethod === "transfer" &&
+                        styles.paymentOptionTextActive,
                     ]}
                   >
                     Transferencia / Comprobante
@@ -507,7 +524,8 @@ const CartScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.paymentOptionText,
-                      paymentMethod === "credit" && styles.paymentOptionTextActive,
+                      paymentMethod === "credit" &&
+                        styles.paymentOptionTextActive,
                     ]}
                   >
                     Pago a Crédito
@@ -522,8 +540,14 @@ const CartScreen: React.FC = () => {
                   </Text>
 
                   {/* Selector Dinámico de Bancos */}
-                  <Text style={styles.bankSelectorLabel}>Selecciona el Banco de Destino:</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  <Text style={styles.bankSelectorLabel}>
+                    Selecciona el Banco de Destino:
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={{ marginBottom: 12 }}
+                  >
                     <View style={{ flexDirection: "row", gap: 8 }}>
                       {BANK_ACCOUNTS.map((bank) => (
                         <TouchableOpacity
@@ -534,7 +558,13 @@ const CartScreen: React.FC = () => {
                           ]}
                           onPress={() => setSelectedBankId(bank.id)}
                         >
-                          <Text style={[styles.bankTabText, selectedBankId === bank.id && styles.bankTabTextActive]}>
+                          <Text
+                            style={[
+                              styles.bankTabText,
+                              selectedBankId === bank.id &&
+                                styles.bankTabTextActive,
+                            ]}
+                          >
                             {bank.bankName}
                           </Text>
                         </TouchableOpacity>
@@ -545,35 +575,62 @@ const CartScreen: React.FC = () => {
                   {/* Detalle del Banco Seleccionado con RNC, Cuenta y Moneda */}
                   <View style={styles.bankInfoBox}>
                     <Text style={styles.paymentDetailText}>
-                      Banco: <Text style={{ fontWeight: "bold", color: "#0F294A" }}>{selectedBank.bankName}</Text>
+                      Banco:{" "}
+                      <Text style={{ fontWeight: "bold", color: "#0F294A" }}>
+                        {selectedBank.bankName}
+                      </Text>
                     </Text>
                     <Text style={styles.paymentDetailText}>
-                      No. de Cuenta: <Text style={{ fontWeight: "bold", color: "#E31E24" }}>{selectedBank.accountNumber}</Text>
+                      No. de Cuenta:{" "}
+                      <Text style={{ fontWeight: "bold", color: "#E31E24" }}>
+                        {selectedBank.accountNumber}
+                      </Text>
                     </Text>
                     <Text style={styles.paymentDetailText}>
-                      Tipo de Cuenta: <Text style={{ fontWeight: "bold" }}>{selectedBank.accountType}</Text>
+                      Tipo de Cuenta:{" "}
+                      <Text style={{ fontWeight: "bold" }}>
+                        {selectedBank.accountType}
+                      </Text>
                     </Text>
                     <Text style={styles.paymentDetailText}>
-                      RNC: <Text style={{ fontWeight: "bold" }}>{selectedBank.rnc}</Text>
+                      RNC:{" "}
+                      <Text style={{ fontWeight: "bold" }}>
+                        {selectedBank.rnc}
+                      </Text>
                     </Text>
                     <Text style={styles.paymentDetailText}>
-                      Moneda: <Text style={{ fontWeight: "bold" }}>{selectedBank.currency}</Text>
+                      Moneda:{" "}
+                      <Text style={{ fontWeight: "bold" }}>
+                        {selectedBank.currency}
+                      </Text>
                     </Text>
                     <Text style={styles.paymentDetailText}>
-                      Titular: <Text style={{ fontWeight: "bold" }}>{selectedBank.holder}</Text>
+                      Titular:{" "}
+                      <Text style={{ fontWeight: "bold" }}>
+                        {selectedBank.holder}
+                      </Text>
                     </Text>
                   </View>
 
                   <Text style={styles.paymentDetailSubtext}>
-                    Adjunta una foto o captura de tu comprobante de pago a <Text style={{ fontWeight: "bold" }}>{selectedBank.bankName}</Text> para procesar tu orden.
+                    Adjunta una foto o captura de tu comprobante de pago para
+                    procesar tu orden.
                   </Text>
 
                   {receiptImage ? (
                     <View style={styles.receiptPreviewContainer}>
-                      <Image source={{ uri: receiptImage }} style={styles.receiptImagePreview} />
-                      <TouchableOpacity style={styles.removeReceiptButton} onPress={handleRemoveReceipt}>
+                      <Image
+                        source={{ uri: receiptImage }}
+                        style={styles.receiptImagePreview}
+                      />
+                      <TouchableOpacity
+                        style={styles.removeReceiptButton}
+                        onPress={handleRemoveReceipt}
+                      >
                         <Ionicons name="trash-outline" size={16} color="#fff" />
-                        <Text style={styles.removeReceiptText}>Quitar comprobante</Text>
+                        <Text style={styles.removeReceiptText}>
+                          Quitar comprobante
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   ) : (
@@ -582,16 +639,28 @@ const CartScreen: React.FC = () => {
                         style={styles.uploadReceiptButtonHalf}
                         onPress={() => handlePickReceipt(false)}
                       >
-                        <Ionicons name="images-outline" size={18} color="#A04A0E" />
-                        <Text style={styles.uploadReceiptButtonText}>Galería</Text>
+                        <Ionicons
+                          name="images-outline"
+                          size={18}
+                          color="#A04A0E"
+                        />
+                        <Text style={styles.uploadReceiptButtonText}>
+                          Galería
+                        </Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         style={styles.uploadReceiptButtonHalf}
                         onPress={() => handlePickReceipt(true)}
                       >
-                        <Ionicons name="camera-outline" size={18} color="#A04A0E" />
-                        <Text style={styles.uploadReceiptButtonText}>Cámara</Text>
+                        <Ionicons
+                          name="camera-outline"
+                          size={18}
+                          color="#A04A0E"
+                        />
+                        <Text style={styles.uploadReceiptButtonText}>
+                          Cámara
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -602,7 +671,8 @@ const CartScreen: React.FC = () => {
                     🤝 Solicitud de Pago a Crédito
                   </Text>
                   <Text style={styles.paymentDetailSubtext}>
-                    Tu pedido se registrará en tu cuenta corriente según los acuerdos de crédito autorizados.
+                    Tu pedido se registrará en tu cuenta corriente según los
+                    acuerdos de crédito autorizados.
                   </Text>
                   <TextInput
                     style={styles.creditNoteInput}
@@ -740,7 +810,13 @@ const styles = StyleSheet.create({
   tonButtonActive: { backgroundColor: "#A04A0E" },
   tonButtonText: { fontSize: 12, color: "#A04A0E", fontWeight: "500" },
   footer: { marginTop: 10, paddingVertical: 14, backgroundColor: "#fff8f3" },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 6, marginTop: 12, color: "#0F294A" },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 6,
+    marginTop: 12,
+    color: "#0F294A",
+  },
   input: {
     backgroundColor: "#fff",
     borderColor: "#ddd",
@@ -774,7 +850,12 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderWidth: 1,
   },
-  deliveriesTitle: { fontWeight: "bold", fontSize: 15, marginBottom: 8, color: "#0F294A" },
+  deliveriesTitle: {
+    fontWeight: "bold",
+    fontSize: 15,
+    marginBottom: 8,
+    color: "#0F294A",
+  },
   deliveryCard: {
     marginBottom: 8,
     padding: 10,
