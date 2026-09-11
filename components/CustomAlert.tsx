@@ -17,35 +17,35 @@ interface CustomAlertProps {
   onClose: () => void;
 }
 
-
 const getTypeStyles = (type: AlertType | undefined) => {
   switch (type) {
     case "success":
       return {
         backgroundColor: "#4CAF50",
-        secondaryColor: "#388E3C", 
+        secondaryColor: "#388E3C",
         iconChar: "✓",
       };
     case "error":
       return {
         backgroundColor: "#F44336",
-        secondaryColor: "#D32F2F", 
+        secondaryColor: "#D32F2F",
         iconChar: "✕",
       };
     case "info":
       return {
         backgroundColor: "#2196F3",
-        secondaryColor: "#1976D2", 
+        secondaryColor: "#1976D2",
         iconChar: "i",
       };
     case "warning":
       return {
-        backgroundColor: "#FFC107", 
-        secondaryColor: "#FFA000", 
+        backgroundColor: "#FFC107",
+        secondaryColor: "#FFA000",
+        iconChar: "!",
       };
     default:
       return {
-        backgroundColor: "#607D8B", 
+        backgroundColor: "#607D8B",
         secondaryColor: "#455A64",
         iconChar: "i",
       };
@@ -55,47 +55,58 @@ const getTypeStyles = (type: AlertType | undefined) => {
 const CustomAlert: React.FC<CustomAlertProps> = ({
   message,
   type,
-  duration = 2500, 
+  duration = 2500,
   onPress,
   isVisible,
   onClose,
 }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current; 
-  const scaleAnim = useRef(new Animated.Value(0.8)).current; 
-
-  let timer: number;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const timerRef = useRef<any>(null);
 
   const { backgroundColor, secondaryColor, iconChar } = getTypeStyles(type);
+
+  const handleDismiss = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.8,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      if (onPress) {
+        onPress();
+      }
+      onClose();
+    });
+  };
 
   useEffect(() => {
     if (isVisible) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 300, 
+          duration: 250,
           useNativeDriver: true,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
-          friction: 6, 
-          tension: 80, 
+          friction: 6,
+          tension: 80,
           useNativeDriver: true,
         }),
       ]).start(() => {
         if (duration > 0) {
-          timer = setTimeout(() => {
-            Animated.parallel([
-              Animated.timing(fadeAnim, {
-                toValue: 0,
-                duration: 300,
-                useNativeDriver: true,
-              }),
-              Animated.timing(scaleAnim, {
-                toValue: 0.8,
-                duration: 300,
-                useNativeDriver: true,
-              }),
-            ]).start(() => onClose());
+          timerRef.current = setTimeout(() => {
+            handleDismiss();
           }, duration);
         }
       });
@@ -104,7 +115,11 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
       scaleAnim.setValue(0.8);
     }
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
   }, [isVisible, duration]);
 
   if (!isVisible) {
@@ -113,26 +128,28 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
 
   return (
     <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
-      <Animated.View
-        style={[
-          styles.alertContainer,
-          { backgroundColor }, 
-          { transform: [{ scale: scaleAnim }] },
-        ]}
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.dismissOverlayTouch}
+        onPress={handleDismiss}
       >
-        <View
-          style={[styles.iconBackground, { backgroundColor: secondaryColor }]}
+        <Animated.View
+          style={[
+            styles.alertContainer,
+            { backgroundColor },
+            { transform: [{ scale: scaleAnim }] },
+          ]}
         >
-          <Text style={styles.iconChar}>{iconChar}</Text>
-        </View>
-        <TouchableOpacity
-          onPress={onPress || onClose}
-          style={styles.contentWrapper}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.messageText}>{message}</Text>
-        </TouchableOpacity>
-      </Animated.View>
+          <View
+            style={[styles.iconBackground, { backgroundColor: secondaryColor }]}
+          >
+            <Text style={styles.iconChar}>{iconChar}</Text>
+          </View>
+          <View style={styles.contentWrapper}>
+            <Text style={styles.messageText}>{message}</Text>
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -144,48 +161,53 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    zIndex: 9999,
+  },
+  dismissOverlayTouch: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 9999,
     paddingHorizontal: 20,
   },
   alertContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16, 
-    borderRadius: 15, 
-    maxWidth: "90%",
-    minWidth: "70%", 
+    padding: 16,
+    borderRadius: 12,
+    maxWidth: "92%",
+    minWidth: "75%",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 }, 
-    shadowOpacity: 0.35, 
-    shadowRadius: 10, 
-    elevation: 12, 
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 12,
   },
   iconBackground: {
-    width: 40,
-    height: 40,
-    borderRadius: 20, 
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 15, 
+    marginRight: 14,
   },
   iconChar: {
-    fontSize: 22, 
+    fontSize: 20,
     color: "white",
     fontWeight: "bold",
   },
   contentWrapper: {
     flex: 1,
-    paddingRight: 5, 
+    paddingRight: 5,
   },
   messageText: {
     color: "white",
-    fontSize: 16, 
+    fontSize: 15,
     flexShrink: 1,
-    lineHeight: 22, 
-    fontWeight: "500", 
+    lineHeight: 21,
+    fontWeight: "500",
   },
 });
 

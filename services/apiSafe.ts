@@ -19,7 +19,10 @@ export async function safeRequest<T = any>(
   } catch (error: any) {
     const status = error.response?.status || 500;
     const message =
-      error.response?.data?.message || "Error inesperado del servidor";
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      "Error inesperado del servidor";
 
     return {
       success: false,

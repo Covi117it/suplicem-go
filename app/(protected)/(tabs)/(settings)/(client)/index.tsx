@@ -7,10 +7,12 @@ import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { updateClientProfile } from "@/services/userService";
 import { Address } from "@/types/users";
+import { isTermsNoticeEnabled, resetAcceptedTerms, setTermsNoticeEnabled } from "@/utils/authStorage";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import React, { useContext, useEffect, useState } from "react";
 import {
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -70,23 +72,43 @@ const ClientSettingsMainScreen: React.FC = () => {
   const { showAlert } = useAlert();
   const { show, hide } = useLoading();
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+  const [isTermsModalVisible, setIsTermsModalVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const [phone, setPhone] = useState(user?.phone || "");
   const [addresses, setAddresses] = useState<Address[]>(user?.addresses || []);
 
+  const [termsNoticeEnabledState, setTermsNoticeEnabledState] = useState(true);
+
   useEffect(() => {
-    if (user) {
+    if (user?.uid) {
       setPhone(user.phone || "");
       setAddresses(user.addresses || []);
+      isTermsNoticeEnabled(user.uid).then(setTermsNoticeEnabledState);
     }
   }, [user]);
+
+  const toggleTermsNotice = async () => {
+    if (!user?.uid) return;
+    const newState = !termsNoticeEnabledState;
+    await setTermsNoticeEnabled(user.uid, newState);
+    setTermsNoticeEnabledState(newState);
+    showAlert({
+      message: newState
+        ? "¡Aviso habilitado! Se solicitará aceptación de Términos al iniciar sesión."
+        : "¡Aviso deshabilitado! El aviso de Términos no se mostrará al iniciar sesión.",
+      type: "info",
+    });
+  };
 
   const handleLogout = () => {
     setIsLogoutModalVisible(true);
   };
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
+    if (user?.uid) {
+      await resetAcceptedTerms(user.uid);
+    }
     setIsLogoutModalVisible(false);
     logOut();
   };
@@ -179,7 +201,7 @@ const ClientSettingsMainScreen: React.FC = () => {
         </Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={styles.cardSharp}>
         <InfoRow
           label="Tipo de identificación"
           value={user.identificationType}
@@ -213,8 +235,8 @@ const ClientSettingsMainScreen: React.FC = () => {
       </View>
 
       <CheckRender allowed={user?.userType === ROLE.CLIENT}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Direcciones</Text>
+        <View style={styles.cardSharp}>
+          <Text style={styles.sectionTitle}>Direcciones de Entrega</Text>
 
           {isEditing ? (
             <>
@@ -225,6 +247,7 @@ const ClientSettingsMainScreen: React.FC = () => {
                       {addr?.description || "Selecciona una dirección"}
                     </Text>
                     <AddressPicker
+                      initialValue={addr?.description || ""}
                       onPlaceSelected={(place) => {
                         const updated = [...addresses];
                         updated[index] = { ...updated[index], ...place };
@@ -258,14 +281,13 @@ const ClientSettingsMainScreen: React.FC = () => {
                 <Text style={styles.link}>+ Agregar dirección</Text>
               </TouchableOpacity>
             </>
-          ) : 
-          user.addresses.length > 0 ? (
+          ) : user.addresses.length > 0 ? (
             user.addresses.map((address, i) => (
               <View key={i} style={styles.addressItem}>
                 <Ionicons
                   name="location-sharp"
                   size={20}
-                  color="#A04A0E"
+                  color="#E31E24"
                   style={{ marginRight: 8 }}
                 />
                 <Text style={styles.addressText}>
@@ -281,7 +303,7 @@ const ClientSettingsMainScreen: React.FC = () => {
       </CheckRender>
 
       <CheckRender allowed={user?.userType === ROLE.DRIVER}>
-        <View style={styles.card}>
+        <View style={styles.cardSharp}>
           <Text style={styles.sectionTitle}>Vehículo</Text>
           {user.vehicle ? (
             <>
@@ -292,14 +314,14 @@ const ClientSettingsMainScreen: React.FC = () => {
                   <MaterialIcons
                     name="directions-car"
                     size={22}
-                    color="#A04A0E"
+                    color="#E31E24"
                   />
                 }
               />
               <InfoRow
                 label="Modelo"
                 value={user.vehicle.model}
-                icon={<Feather name="tag" size={22} color="#A04A0E" />}
+                icon={<Feather name="tag" size={22} color="#E31E24" />}
               />
             </>
           ) : (
@@ -308,33 +330,133 @@ const ClientSettingsMainScreen: React.FC = () => {
         </View>
       </CheckRender>
 
+      {/* Apartado Legal y Términos y Condiciones */}
+      <View style={styles.cardSharp}>
+        <Text style={styles.sectionTitle}>Legal e Información</Text>
+        <TouchableOpacity
+          style={styles.termsOptionRow}
+          onPress={() => setIsTermsModalVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.termsOptionLeft}>
+            <Ionicons name="document-text-outline" size={22} color="#E31E24" />
+            <Text style={styles.termsOptionText}>Términos y Condiciones de Uso</Text>
+          </View>
+          <Ionicons name="chevron-forward-outline" size={20} color="#666" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.termsOptionRow, { marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#f0f0f0" }]}
+          onPress={toggleTermsNotice}
+          activeOpacity={0.7}
+        >
+          <View style={styles.termsOptionLeft}>
+            <Ionicons
+              name={termsNoticeEnabledState ? "checkbox-outline" : "square-outline"}
+              size={22}
+              color={termsNoticeEnabledState ? "#E31E24" : "#666"}
+            />
+            <Text style={styles.termsOptionText}>
+              Aviso al Login: {termsNoticeEnabledState ? "Habilitado" : "Deshabilitado"}
+            </Text>
+          </View>
+          <View style={[
+            styles.toggleBadge,
+            { backgroundColor: termsNoticeEnabledState ? "#ffebee" : "#f1f5f9" }
+          ]}>
+            <Text style={[
+              styles.toggleBadgeText,
+              { color: termsNoticeEnabledState ? "#E31E24" : "#475569" }
+            ]}>
+              {termsNoticeEnabledState ? "Deshabilitar" : "Habilitar"}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {isEditing && (
         <TouchableOpacity
-          style={[styles.editButton, styles.cancelButton]}
+          style={[styles.sharpButton, styles.cancelButton]}
           onPress={handleCancel}
           activeOpacity={0.8}
         >
-          <Text style={styles.editText}>Cancelar</Text>
+          <Text style={styles.buttonTextSharp}>Cancelar</Text>
         </TouchableOpacity>
       )}
 
       <TouchableOpacity
-        style={styles.editButton}
+        style={styles.sharpButton}
         onPress={handleEdit}
         activeOpacity={0.8}
       >
-        <Text style={styles.editText}>{isEditing ? "Guardar" : "Editar"}</Text>
+        <Text style={styles.buttonTextSharp}>{isEditing ? "Guardar" : "Editar perfil"}</Text>
       </TouchableOpacity>
 
       {!isEditing && (
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={styles.logoutButtonSharp}
           onPress={handleLogout}
           activeOpacity={0.8}
         >
-          <Text style={styles.logoutText}>Cerrar sesión</Text>
+          <Text style={styles.logoutTextSharp}>Cerrar sesión</Text>
         </TouchableOpacity>
       )}
+
+      {/* Modal Releable de Términos y Condiciones */}
+      <Modal
+        visible={isTermsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsTermsModalVisible(false)}
+      >
+        <View style={styles.termsModalOverlay}>
+          <View style={styles.termsModalCard}>
+            <View style={styles.termsHeader}>
+              <Ionicons name="shield-checkmark-outline" size={28} color="#E31E24" />
+              <Text style={styles.termsTitle}>Términos y Condiciones Suplicem</Text>
+            </View>
+            <Text style={styles.termsSubtitle}>
+              Acuerdo legal y políticas de servicio de distribución y logística.
+            </Text>
+
+            <ScrollView style={styles.termsScrollView} showsVerticalScrollIndicator={true}>
+              <Text style={styles.contractSectionHeader}>1. Descripción del Servicio Suplicem</Text>
+              <Text style={styles.contractParagraph}>
+                Suplicem es una plataforma de distribución y logística para la compra y despacho de cemento, agregados y materiales de construcción. Los pedidos se gestionan por fundas y toneladas con entregas directas a domicilio/obra o retiro en almacén.
+              </Text>
+
+              <Text style={styles.contractSectionHeader}>2. Registro y Responsabilidad de Cuenta</Text>
+              <Text style={styles.contractParagraph}>
+                El usuario garantiza que la información de registro (dirección de obra, número de cédula/RNC y contacto) es verídica. Cada cliente es responsable de garantizar un acceso adecuado para los vehículos pesados de transporte en el lugar de entrega designado.
+              </Text>
+
+              <Text style={styles.contractSectionHeader}>3. Modalidades de Pago y Comprobantes</Text>
+              <Text style={styles.contractParagraph}>
+                - Transferencia Bancaria: El cliente debe adjuntar la captura del comprobante oficial emitido por el banco para validar el pedido.
+                {"\n\n"}- Pago a Crédito: La modalidad de crédito se otorga sujeta a acuerdos comerciales previos y límites de cuenta autorizados por la administración de Suplicem.
+              </Text>
+
+              <Text style={styles.contractSectionHeader}>4. Recepción de Mercancía y Garantía</Text>
+              <Text style={styles.contractParagraph}>
+                Al momento del descargue en la obra o almacén, el cliente o su representante debe verificar la cantidad de fundas recibidas y su estado. Cualquier novedad debe ser notificada de inmediato.
+              </Text>
+
+              <Text style={styles.contractSectionHeader}>5. Política de Privacidad y Protección de Datos</Text>
+              <Text style={styles.contractParagraph}>
+                Los datos recabados se utilizan exclusivamente para la gestión de compras, emisión de facturas y coordinación logística de despacho. Suplicem no comparte información personal con terceros ajenos a la operación.
+              </Text>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.closeTermsButton}
+              onPress={() => setIsTermsModalVisible(false)}
+            >
+              <Text style={styles.closeTermsButtonText}>Cerrar y Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ConfirmationModal
         visible={isLogoutModalVisible}
         title="Cerrar Sesión"
@@ -352,10 +474,10 @@ export default ClientSettingsMainScreen;
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingHorizontal: 18,
+    paddingTop: 30,
     paddingBottom: 60,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F8FAFC",
     alignItems: "center",
   },
   centered: {
@@ -364,75 +486,96 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#AAA",
   },
   avatarContainer: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 24,
   },
   avatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 3,
     borderColor: "#E31E24",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   name: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#0F294A",
   },
   role: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#E31E24",
-    marginTop: 4,
-    fontStyle: "italic",
+    marginTop: 2,
+    fontWeight: "600",
   },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    paddingVertical: 20,
-    paddingHorizontal: 18,
+  // Estilo "Sharp" Híbrido: Bordes sutiles afilados (borderRadius 6) con sombras elegantes
+  cardSharp: {
+    backgroundColor: "#ffffff",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingVertical: 18,
+    paddingHorizontal: 16,
     width: "100%",
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 5,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 14,
   },
   iconWrapper: {
-    marginRight: 14,
+    marginRight: 12,
   },
   infoTextWrapper: {
     flex: 1,
   },
   infoLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: "#E31E24",
     marginBottom: 2,
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#0F294A",
+    fontWeight: "500",
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
     color: "#0F294A",
-    marginBottom: 12,
-    borderBottomColor: "#E31E24",
+    marginBottom: 14,
+    borderBottomColor: "#E2E8F0",
     borderBottomWidth: 1,
-    paddingBottom: 6,
+    paddingBottom: 8,
+  },
+  termsOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  termsOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  termsOptionText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0F294A",
   },
   addressItem: {
     flexDirection: "row",
@@ -441,55 +584,47 @@ const styles = StyleSheet.create({
   },
   addressText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     color: "#333",
   },
   emptyText: {
     fontStyle: "italic",
     color: "#AAA",
-    fontSize: 15,
+    fontSize: 14,
   },
-  logoutButton: {
+  sharpButton: {
     marginTop: 10,
-    backgroundColor: "#E31E24",
-    paddingVertical: 14,
-    borderRadius: 30,
-    width: "100%",
-    alignItems: "center",
-    shadowColor: "#E31E24",
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 7,
-  },
-  logoutText: {
-    color: "#FFF",
-    fontWeight: "700",
-    fontSize: 18,
-  },
-  editButton: {
-    marginTop: 20,
     backgroundColor: "#0F294A",
     paddingVertical: 14,
-    borderRadius: 30,
+    borderRadius: 6,
     width: "100%",
     alignItems: "center",
-    shadowColor: "#0F294A",
-    shadowOpacity: 0.4,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 7,
   },
-  editText: {
+  buttonTextSharp: {
     color: "#FFF",
     fontWeight: "700",
-    fontSize: 18,
+    fontSize: 16,
+  },
+  logoutButtonSharp: {
+    marginTop: 12,
+    backgroundColor: "#ffffff",
+    borderColor: "#E31E24",
+    borderWidth: 1.5,
+    paddingVertical: 13,
+    borderRadius: 6,
+    width: "100%",
+    alignItems: "center",
+  },
+  logoutTextSharp: {
+    color: "#E31E24",
+    fontWeight: "700",
+    fontSize: 16,
   },
   cancelButton: {
-    backgroundColor: "#E31E24",
+    backgroundColor: "#757575",
   },
   inputField: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#333",
     paddingVertical: 4,
     borderBottomWidth: 1,
@@ -501,5 +636,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     marginBottom: 10,
+  },
+  // Modal de Términos
+  termsModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  termsModalCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 6,
+    padding: 20,
+    width: "95%",
+    maxHeight: "85%",
+  },
+  termsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 6,
+  },
+  termsTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0F294A",
+    flex: 1,
+  },
+  termsSubtitle: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 14,
+  },
+  termsScrollView: {
+    borderColor: "#e0e0e0",
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: 12,
+    backgroundColor: "#fafafa",
+    marginBottom: 16,
+    maxHeight: 340,
+  },
+  contractSectionHeader: {
+    fontWeight: "bold",
+    fontSize: 14,
+    color: "#0F294A",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  contractParagraph: {
+    fontSize: 13,
+    color: "#444",
+    lineHeight: 19,
+    marginBottom: 8,
+  },
+  closeTermsButton: {
+    backgroundColor: "#0F294A",
+    paddingVertical: 12,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  closeTermsButtonText: {
+    color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 15,
+  },
+  toggleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  toggleBadgeText: {
+    fontSize: 13,
+    fontWeight: "bold",
   },
 });

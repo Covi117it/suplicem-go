@@ -45,6 +45,14 @@ const AdminSettingsMainScreen: React.FC = () => {
       <Text style={styles.title}>Configuración de Administrador</Text>
 
       <TouchableOpacity
+        style={[styles.button, styles.primaryAlertButton]}
+        onPress={() => router.push("/user-requests")}
+      >
+        <Ionicons name="shield-checkmark-outline" size={24} color="#fff" />
+        <Text style={styles.buttonText}>Verificación de Cédulas</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={styles.button}
         onPress={() => router.push("/user-management")}
       >
@@ -93,7 +101,7 @@ export default AdminSettingsMainScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F8FAFC",
   },
   content: {
     padding: 24,
@@ -121,18 +129,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F294A",
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#1E3A8A",
     marginBottom: 16,
     shadowColor: "#0F294A",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  primaryAlertButton: {
+    backgroundColor: "#E31E24",
+    borderColor: "#B91C1C",
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     marginLeft: 12,
   },
   logoutButton: {
@@ -142,9 +156,9 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1.5,
     borderColor: "#E31E24",
-    borderRadius: 10,
+    borderRadius: 4,
     paddingVertical: 14,
-    backgroundColor: "#FFF5F5",
+    backgroundColor: "#FEF2F2",
   },
   logoutText: {
     color: "#E31E24",

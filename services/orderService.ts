@@ -43,6 +43,7 @@ export const createOrder = async (order: {
     subtotal: number;
   }[];
   comments?: string;
+  receiptImage?: string;
 }) => {
   const response = await protectedApi.post("/orders", order);
   return response.data;

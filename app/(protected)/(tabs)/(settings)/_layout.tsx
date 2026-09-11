@@ -12,6 +12,14 @@ export default function SettingsLayout() {
         name="(admin)"
         options={{ title: "Administrar", headerShown: true }}
       />
+      <Stack.Screen
+        name="(client)"
+        options={{ title: "Cliente", headerShown: false }}
+      />
+      <Stack.Screen
+        name="(driver)"
+        options={{ title: "Chofer", headerShown: false }}
+      />
     </Stack>
   );
 }

@@ -8,7 +8,10 @@ import { RegisterFormData } from "@/types/users";
 import { registerSchema } from "@/validations/registerSchema";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter } from "expo-router";
-import React from "react";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Image,
@@ -26,6 +29,62 @@ export default function RegisterScreen() {
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
   const router = useRouter();
+  const [identificationImage, setIdentificationImage] = useState<string | null>(null);
+
+  const handlePickIdImage = async (useCamera: boolean = false) => {
+    try {
+      const permission = useCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        showAlert({
+          message: "Se requiere permiso para adjuntar la foto del documento",
+          type: "warning",
+        });
+        return;
+      }
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.5,
+            allowsEditing: true,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.5,
+            allowsEditing: true,
+          });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+
+        // Redimensionar a un máximo de 800px de ancho y comprimir a JPEG ligero
+        const manipResult = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+
+        const imageString = manipResult.base64
+          ? `data:image/jpeg;base64,${manipResult.base64}`
+          : asset.uri;
+
+        setIdentificationImage(imageString);
+        showAlert({
+          message: "¡Foto de la cédula/identificación adjuntada correctamente!",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      showAlert({
+        message: "No se pudo cargar la imagen",
+        type: "error",
+      });
+    }
+  };
 
   const {
     control,
@@ -79,28 +138,51 @@ export default function RegisterScreen() {
   };
 
   const onSubmit = async (data: RegisterFormData) => {
-    console.log(JSON.stringify(data));
-    show();
-    const responseRegister = await createUserAccount(data);
-
-    if (responseRegister?.success) {
-      reset();
+    if (!identificationImage) {
       showAlert({
-        message:
-          "Usuario registrado correctamente, Hemos enviado un enlace de verificación al correo electrónico que proporcionaste. Por favor, revisa tu bandeja de entrada (y la carpeta de spam) y confirma tu cuenta para poder iniciar sesión.",
-        type: "success",
+        message: "Debes adjuntar la foto de tu cédula o pasaporte para la verificación de cuenta por el administrador.",
+        type: "warning",
       });
-      console.log("responseRegister");
-      console.log(responseRegister);
-      router.back();
-    } else {
-      showAlert({
-        message: "No se pudo registrar el usuario",
-        type: "error",
-      });
+      return;
     }
 
-    hide();
+    const payload: any = {
+      ...data,
+      identificationImage,
+    };
+
+    show();
+    try {
+      const responseRegister = await createUserAccount(payload);
+
+      if (responseRegister?.success) {
+        reset();
+        setIdentificationImage(null);
+        showAlert({
+          message:
+            "¡Registro exitoso! Tu solicitud ha sido guardada y está pendiente de verificación por el Administrador.",
+          type: "success",
+        });
+        router.replace("/pending-approval");
+      } else {
+        const errorMsg =
+          responseRegister?.message ||
+          (responseRegister?.data as any)?.error ||
+          "No se pudo completar el registro.";
+        showAlert({
+          message: errorMsg,
+          type: "error",
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      showAlert({
+        message: err?.message || "Ocurrió un error inesperado al procesar el registro.",
+        type: "error",
+      });
+    } finally {
+      hide();
+    }
   };
 
   return (
@@ -149,6 +231,47 @@ export default function RegisterScreen() {
         {errors.identification && (
           <Text style={styles.error}>{errors.identification.message}</Text>
         )}
+
+        {/* Tarjeta de carga de foto de Cédula / Identificación */}
+        <View style={styles.idUploadCard}>
+          <Text style={styles.idUploadTitle}>
+            🪪 Foto de Cédula / Identificación
+          </Text>
+          <Text style={styles.idUploadSubtext}>
+            Adjunta una foto clara del documento. El Administrador revisará la imagen para activar tu cuenta.
+          </Text>
+
+          {identificationImage ? (
+            <View style={styles.idPreviewContainer}>
+              <Image source={{ uri: identificationImage }} style={styles.idImagePreview} />
+              <TouchableOpacity
+                style={styles.removeIdButton}
+                onPress={() => setIdentificationImage(null)}
+              >
+                <Ionicons name="trash-outline" size={16} color="#fff" />
+                <Text style={styles.removeIdText}>Cambiar foto</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.uploadOptionsRow}>
+              <TouchableOpacity
+                style={styles.uploadIdButtonHalf}
+                onPress={() => handlePickIdImage(false)}
+              >
+                <Ionicons name="images-outline" size={18} color="#0F294A" />
+                <Text style={styles.uploadIdButtonText}>Galería</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.uploadIdButtonHalf}
+                onPress={() => handlePickIdImage(true)}
+              >
+                <Ionicons name="camera-outline" size={18} color="#0F294A" />
+                <Text style={styles.uploadIdButtonText}>Cámara</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         <Controller
           control={control}
@@ -293,6 +416,7 @@ export default function RegisterScreen() {
                   {addr?.additionalInfo || ""}
                 </Text>
                 <AddressPicker
+                  initialValue={addr?.description || ""}
                   onPlaceSelected={(place) => {
                     const updated = [...addresses];
                     updated[index] = { ...updated[index], ...place };
@@ -552,5 +676,70 @@ const styles = StyleSheet.create({
   linkInline: {
     color: "#E31E24",
     textDecorationLine: "underline",
+  },
+  idUploadCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 6,
+    padding: 14,
+    marginBottom: 14,
+  },
+  idUploadTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#0F294A",
+    marginBottom: 4,
+  },
+  idUploadSubtext: {
+    fontSize: 12,
+    color: "#64748B",
+    marginBottom: 10,
+    lineHeight: 16,
+  },
+  uploadOptionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  uploadIdButtonHalf: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#ffffff",
+    borderColor: "#CBD5E1",
+    borderWidth: 1,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  uploadIdButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0F294A",
+  },
+  idPreviewContainer: {
+    alignItems: "center",
+    marginTop: 6,
+  },
+  idImagePreview: {
+    width: "100%",
+    height: 160,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  removeIdButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#E31E24",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  removeIdText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "bold",
   },
 });

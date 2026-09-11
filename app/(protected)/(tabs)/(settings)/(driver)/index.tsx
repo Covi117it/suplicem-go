@@ -75,13 +75,18 @@ const DriverSettingsMainScreen: React.FC = () => {
   const [phone, setPhone] = useState(user?.phone || "");
   const [vehicleBrand, setVehicleBrand] = useState(user?.vehicle?.brand || "");
   const [vehicleModel, setVehicleModel] = useState(user?.vehicle?.model || "");
-
+  const [vehicleYear, setVehicleYear] = useState(user?.vehicle?.year || "");
+  const [vehicleTons, setVehicleTons] = useState(user?.vehicle?.tons || "");
+  const [vehiclePlateNumber, setVehiclePlateNumber] = useState(user?.vehicle?.plateNumber || "");
 
   useEffect(() => {
     if (user) {
       setPhone(user.phone || "");
       setVehicleBrand(user.vehicle?.brand || "");
       setVehicleModel(user.vehicle?.model || "");
+      setVehicleYear(user.vehicle?.year || "");
+      setVehicleTons(user.vehicle?.tons || "");
+      setVehiclePlateNumber(user.vehicle?.plateNumber || "");
     }
   }, [user]);
 
@@ -106,16 +111,16 @@ const DriverSettingsMainScreen: React.FC = () => {
       try {
         show();
 
-        console.log("➡️ Datos a enviar al servicio:", {
-          uid: user.uid,
+        await updateDriverProfile(
+          user.uid,
           phone,
           vehicleBrand,
           vehicleModel,
-        });
+          vehicleYear,
+          vehicleTons,
+          vehiclePlateNumber
+        );
 
-        await updateDriverProfile(user.uid, phone, vehicleBrand, vehicleModel);
-
-        console.log("✅ Servicio llamado con éxito.");
         const newUser = {
           ...user,
           phone: phone,
@@ -123,17 +128,16 @@ const DriverSettingsMainScreen: React.FC = () => {
             ...(user.vehicle || {}),
             brand: vehicleBrand,
             model: vehicleModel,
-            year: user.vehicle?.year || "",
-            tons: user.vehicle?.tons || "",
+            year: vehicleYear,
+            tons: vehicleTons,
+            plateNumber: vehiclePlateNumber,
           },
         };
-
-        console.log("🔄 Nuevo objeto de usuario para el contexto:", newUser);
 
         logIn(newUser);
 
         showAlert({
-          message: "¡Perfil actualizado con éxito!",
+          message: "¡Perfil y datos del vehículo actualizados con éxito!",
           type: "success",
         });
         setIsEditing(false);
@@ -157,6 +161,9 @@ const DriverSettingsMainScreen: React.FC = () => {
       setPhone(user.phone || "");
       setVehicleBrand(user.vehicle?.brand || "");
       setVehicleModel(user.vehicle?.model || "");
+      setVehicleYear(user.vehicle?.year || "");
+      setVehicleTons(user.vehicle?.tons || "");
+      setVehiclePlateNumber(user.vehicle?.plateNumber || "");
     }
   };
 
@@ -241,50 +248,81 @@ const DriverSettingsMainScreen: React.FC = () => {
 
       <CheckRender allowed={user?.userType === ROLE.DRIVER}>
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Vehículo</Text>
+          <Text style={styles.sectionTitle}>🚚 Vehículo Asignado</Text>
           {user.vehicle ? (
             <>
+              {/* Área destacada para el Número de Placa del Vehículo */}
+              <View style={styles.plateCard}>
+                <Ionicons name="car-sport" size={20} color="#0F294A" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.plateLabel}>NÚMERO DE PLACA VEHICULAR</Text>
+                  <Text style={styles.plateValue}>
+                    {isEditing ? (vehiclePlateNumber || "No asignada") : (user.vehicle.plateNumber || "No registrada")}
+                  </Text>
+                </View>
+              </View>
+
               {isEditing ? (
-                <InputRow
-                  label="Marca"
-                  value={vehicleBrand}
-                  onChange={setVehicleBrand}
-                  placeholder="Ej: Ford"
-                  icon={
-                    <MaterialIcons
-                      name="directions-car"
-                      size={22}
-                      color="#E31E24"
-                    />
-                  }
-                />
+                <>
+                  <InputRow
+                    label="Número de Placa"
+                    value={vehiclePlateNumber}
+                    onChange={setVehiclePlateNumber}
+                    placeholder="Ej: A123456"
+                    icon={<Ionicons name="card-outline" size={22} color="#E31E24" />}
+                  />
+                  <InputRow
+                    label="Marca"
+                    value={vehicleBrand}
+                    onChange={setVehicleBrand}
+                    placeholder="Ej: Toyota"
+                    icon={<MaterialIcons name="directions-car" size={22} color="#E31E24" />}
+                  />
+                  <InputRow
+                    label="Modelo"
+                    value={vehicleModel}
+                    onChange={setVehicleModel}
+                    placeholder="Ej: Dyna"
+                    icon={<Feather name="tag" size={22} color="#E31E24" />}
+                  />
+                  <InputRow
+                    label="Año"
+                    value={vehicleYear}
+                    onChange={setVehicleYear}
+                    placeholder="Ej: 2022"
+                    icon={<Feather name="calendar" size={22} color="#E31E24" />}
+                  />
+                  <InputRow
+                    label="Toneladas"
+                    value={vehicleTons}
+                    onChange={setVehicleTons}
+                    placeholder="Ej: 5"
+                    icon={<Feather name="truck" size={22} color="#E31E24" />}
+                  />
+                </>
               ) : (
-                <InfoRow
-                  label="Marca"
-                  value={user.vehicle.brand}
-                  icon={
-                    <MaterialIcons
-                      name="directions-car"
-                      size={22}
-                      color="#E31E24"
-                    />
-                  }
-                />
-              )}
-              {isEditing ? (
-                <InputRow
-                  label="Modelo"
-                  value={vehicleModel}
-                  onChange={setVehicleModel}
-                  placeholder="Ej: F-150"
-                  icon={<Feather name="tag" size={22} color="#E31E24" />}
-                />
-              ) : (
-                <InfoRow
-                  label="Modelo"
-                  value={user.vehicle.model}
-                  icon={<Feather name="tag" size={22} color="#E31E24" />}
-                />
+                <>
+                  <InfoRow
+                    label="Marca"
+                    value={user.vehicle.brand}
+                    icon={<MaterialIcons name="directions-car" size={22} color="#E31E24" />}
+                  />
+                  <InfoRow
+                    label="Modelo"
+                    value={user.vehicle.model}
+                    icon={<Feather name="tag" size={22} color="#E31E24" />}
+                  />
+                  <InfoRow
+                    label="Año"
+                    value={user.vehicle.year || "N/A"}
+                    icon={<Feather name="calendar" size={22} color="#E31E24" />}
+                  />
+                  <InfoRow
+                    label="Capacidad (Toneladas)"
+                    value={user.vehicle.tons ? `${user.vehicle.tons} Ton` : "N/A"}
+                    icon={<Feather name="truck" size={22} color="#E31E24" />}
+                  />
+                </>
               )}
             </>
           ) : (
@@ -475,5 +513,28 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: "#E31E24",
+  },
+  plateCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  plateLabel: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#64748B",
+    letterSpacing: 0.5,
+  },
+  plateValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0F294A",
+    marginTop: 2,
   },
 });

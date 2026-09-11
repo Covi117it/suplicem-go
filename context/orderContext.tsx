@@ -14,6 +14,7 @@ type Order = {
   deliveries: any[];
   items: any[];
   comments: string;
+  receiptImage?: string;
   status:
     | "pending"
     | "approved"

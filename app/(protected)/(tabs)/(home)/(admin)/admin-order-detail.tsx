@@ -6,13 +6,17 @@ import { useOrders } from "@/context/orderContext";
 import {
   approveOrder as approveOrderService,
   rejectedOrder,
+  getOrderDetail,
 } from "@/services/orderService";
 import { getUsers } from "@/services/userService";
 import { Address } from "@/types/users";
 import { formatRD } from "@/utils/currencyUtils";
-import { useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { getTripByOrderId } from "@/services/tripsService";
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -54,6 +58,7 @@ interface OrderWithAddresses {
   deliveries: OrderDelivery[];
   items: any[];
   comments?: string;
+  receiptImage?: string;
   status: string;
   declineReason?: string;
   userNames: string;
@@ -80,12 +85,49 @@ const AdminOrderDetailScreen: React.FC = () => {
   const { orderId } = useLocalSearchParams();
 
   const selectedOrder = orders.find((o) => o.id === orderId);
+  const [freshOrder, setFreshOrder] = useState<any>(null);
+  const [trip, setTrip] = useState<any>(null);
+  const currentOrder = freshOrder || selectedOrder;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (orderId) {
+        fetchFreshOrderDetails();
+        fetchTripDetails();
+      }
+    }, [orderId])
+  );
+
+  const fetchFreshOrderDetails = async () => {
+    try {
+      const response = await getOrderDetail(orderId as string);
+      if (response?.success && response?.order) {
+        setFreshOrder(response.order);
+      }
+    } catch (error) {
+      console.log("Error al cargar orden fresca:", error);
+    }
+  };
+
+  const fetchTripDetails = async () => {
+    try {
+      if (orderId) {
+        const response = await getTripByOrderId(orderId as string);
+        if (response?.success && response?.trip) {
+          setTrip(response.trip);
+        }
+      }
+    } catch (error) {
+      console.log("Error al cargar trip para admin:", error);
+    }
+  };
 
   const [users, setUsers] = useState<User[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editedDeliveryType, setEditedDeliveryType] = useState("");
   const [editedDeliveries, setEditedDeliveries] = useState<OrderDelivery[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [viewReceiptModalVisible, setViewReceiptModalVisible] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
   const [newAddressData, setNewAddressData] = useState({
@@ -133,12 +175,14 @@ const AdminOrderDetailScreen: React.FC = () => {
   }, []);
 
   const approveOrder = async () => {
-    if (!selectedOrder) return;
+    const targetId = currentOrder?.id || selectedOrder?.id;
+    if (!targetId) return;
     try {
       show();
-      const response = await approveOrderService(selectedOrder.id);
+      const response = await approveOrderService(targetId);
       if (response.success) {
-        updateOrder(selectedOrder.id, { status: "approved" });
+        updateOrder(targetId, { status: "approved" });
+        setFreshOrder((prev: any) => (prev ? { ...prev, status: "approved" } : { status: "approved" }));
         showAlert({
           message: "Orden aprobada correctamente.",
           type: "success",
@@ -158,7 +202,8 @@ const AdminOrderDetailScreen: React.FC = () => {
   };
 
   const rejectOrder = async () => {
-    if (!selectedOrder) return;
+    const targetId = currentOrder?.id || selectedOrder?.id;
+    if (!targetId) return;
 
     if (!declineReason || declineReason.trim() === "") {
       setModalVisible(false);
@@ -171,12 +216,15 @@ const AdminOrderDetailScreen: React.FC = () => {
 
     try {
       show();
-      const response = await rejectedOrder(selectedOrder.id, declineReason);
+      const response = await rejectedOrder(targetId, declineReason);
       if (response.success) {
-        updateOrder(selectedOrder.id, {
+        updateOrder(targetId, {
           status: "rejected",
           declineReason: declineReason,
         });
+        setFreshOrder((prev: any) =>
+          prev ? { ...prev, status: "rejected", declineReason } : { status: "rejected", declineReason }
+        );
         setModalVisible(false);
         setDeclineReason("");
         showAlert({
@@ -653,12 +701,73 @@ const AdminOrderDetailScreen: React.FC = () => {
           ))}
         </View>
 
+        {/* Resumen Financiero de la Orden para Admin */}
+        <View style={styles.orderSummaryCard}>
+          <View style={styles.orderSummaryHeader}>
+            <Ionicons name="receipt-outline" size={20} color="#0F294A" />
+            <Text style={styles.orderSummaryTitle}>Resumen General de la Orden</Text>
+          </View>
+          <View style={styles.orderSummaryRow}>
+            <Text style={styles.orderSummaryLabel}>Total Artículos:</Text>
+            <Text style={styles.orderSummaryValue}>
+              {(selectedOrder.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} ítems
+            </Text>
+          </View>
+          <View style={styles.orderSummaryRow}>
+            <Text style={styles.orderSummaryLabel}>Método de Pago:</Text>
+            <Text style={styles.orderSummaryValueBold}>
+              {currentOrder?.comments?.includes("Transferencia") ? "Transferencia Bancaria" : "Pago a Crédito"}
+            </Text>
+          </View>
+          <View style={[styles.orderSummaryRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E2E8F0" }]}>
+            <Text style={styles.totalLabel}>TOTAL GENERAL DE LA ORDEN:</Text>
+            <Text style={styles.totalAmountText}>
+              {formatRD(
+                (selectedOrder.items || []).reduce(
+                  (sum: number, item: any) =>
+                    sum + (Number(item.subtotal) || Number(item.price || 0) * Number(item.quantity || 0)),
+                  0
+                )
+              )}
+            </Text>
+          </View>
+        </View>
+
+        {/* Información del Conductor y Vehículo de Despacho para el Admin */}
+        {trip?.driver && (
+          <View style={styles.driverInfoCardAdmin}>
+            <View style={styles.driverHeaderAdmin}>
+              <Ionicons name="car-sport" size={22} color="#0F294A" />
+              <Text style={styles.driverHeaderAdminTitle}>Conductor y Vehículo de Despacho</Text>
+            </View>
+            <Text style={styles.driverDetailText}>
+              👤 <Text style={{ fontWeight: "bold" }}>Conductor:</Text> {trip.driver.names} {trip.driver.lastNames}
+            </Text>
+            {trip.driver.phone && (
+              <Text style={styles.driverDetailText}>
+                📞 <Text style={{ fontWeight: "bold" }}>Teléfono:</Text> {trip.driver.phone}
+              </Text>
+            )}
+            {trip.driver.vehicle && (
+              <View style={styles.driverPlateBadgeAdminDetail}>
+                <Text style={styles.driverPlateLabelAdmin}>NÚMERO DE PLACA VEHICULAR</Text>
+                <Text style={styles.driverPlateNumberAdmin}>
+                  {trip.driver.vehicle.plateNumber || "No registrada"}
+                </Text>
+                <Text style={styles.driverVehicleModelAdmin}>
+                  {trip.driver.vehicle.brand} {trip.driver.vehicle.model} {trip.driver.vehicle.year ? `(${trip.driver.vehicle.year})` : ""}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Entregas</Text>
           <View style={styles.deliveriesContainer}>
-            {(isEditing ? editedDeliveries : selectedOrder.deliveries).map(
-              (delivery, idx) => (
-                <View key={delivery.id} style={styles.deliveryCard}>
+            {(isEditing ? editedDeliveries : (currentOrder?.deliveries || [])).map(
+              (delivery: any, idx: number) => (
+                <View key={delivery.id || `delivery-${idx}`} style={styles.deliveryCard}>
                   {isEditing && editedDeliveryType === "domicilio" ? (
                     <View>
                       <Text style={styles.deliveryEditLabel}>Usuario</Text>
@@ -860,6 +969,39 @@ const AdminOrderDetailScreen: React.FC = () => {
           )}
         </View>
 
+        {/* Sección de Comprobante de Pago para el Administrador */}
+        {currentOrder?.receiptImage ? (
+          <View style={styles.receiptAdminCard}>
+            <View style={styles.receiptAdminHeader}>
+              <Ionicons name="card-outline" size={22} color="#A04A0E" />
+              <Text style={styles.receiptAdminTitle}>Comprobante de Pago Adjunto</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.receiptImageTouchContainer}
+              onPress={() => setViewReceiptModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={{ uri: currentOrder.receiptImage }}
+                style={styles.receiptAdminThumbnail}
+                resizeMode="cover"
+              />
+              <View style={styles.receiptTapOverlay}>
+                <Ionicons name="scan-outline" size={22} color="#fff" />
+                <Text style={styles.receiptTapText}>Toca para ampliar comprobante</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        ) : currentOrder?.comments?.includes("Transferencia Bancaria") ? (
+          <View style={styles.receiptAdminCardMissing}>
+            <Ionicons name="information-circle-outline" size={22} color="#D32F2F" />
+            <Text style={styles.receiptAdminMissingText}>
+              Pago por Transferencia Bancaria: Comprobante digital no disponible.
+            </Text>
+          </View>
+        ) : null}
+
         {isEditing ? (
           <View style={styles.buttonsContainer}>
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
@@ -938,6 +1080,30 @@ const AdminOrderDetailScreen: React.FC = () => {
           </View>
         </Modal>
 
+        {/* Modal de Vista Completa de Comprobante para Administrador */}
+        <Modal
+          visible={viewReceiptModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setViewReceiptModalVisible(false)}
+        >
+          <View style={styles.receiptViewerModalOverlay}>
+            <TouchableOpacity
+              style={styles.receiptViewerCloseButton}
+              onPress={() => setViewReceiptModalVisible(false)}
+            >
+              <Ionicons name="close-circle" size={38} color="#ffffff" />
+            </TouchableOpacity>
+            {currentOrder?.receiptImage && (
+              <Image
+                source={{ uri: currentOrder.receiptImage }}
+                style={styles.receiptViewerFullImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </Modal>
+
         <Modal
           visible={isAddingNewAddress}
           transparent
@@ -954,6 +1120,7 @@ const AdminOrderDetailScreen: React.FC = () => {
 
                 <Text style={styles.label}>Dirección</Text>
                 <AddressPicker
+                  initialValue={newAddressData.description || ""}
                   onPlaceSelected={(place) => {
                     setNewAddressData((prevData) => ({
                       ...prevData,
@@ -1458,5 +1625,195 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
     paddingTop: 12,
+  },
+  receiptAdminCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ffe0b2",
+    padding: 14,
+    marginBottom: 16,
+  },
+  receiptAdminHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  receiptAdminTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#A04A0E",
+  },
+  receiptImageTouchContainer: {
+    borderRadius: 6,
+    overflow: "hidden",
+    position: "relative",
+    height: 180,
+    backgroundColor: "#000000",
+  },
+  receiptAdminThumbnail: {
+    width: "100%",
+    height: "100%",
+    opacity: 0.85,
+  },
+  receiptTapOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  receiptTapText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  receiptViewerModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+  },
+  receiptViewerCloseButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 10,
+  },
+  receiptViewerFullImage: {
+    width: "100%",
+    height: "85%",
+  },
+  receiptAdminCardMissing: {
+    backgroundColor: "#fffde7",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#fff59d",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 16,
+  },
+  receiptAdminMissingText: {
+    fontSize: 13,
+    color: "#5d4037",
+    flex: 1,
+    lineHeight: 18,
+  },
+  orderSummaryCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  orderSummaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  orderSummaryTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0F294A",
+  },
+  orderSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+  orderSummaryLabel: {
+    fontSize: 14,
+    color: "#64748B",
+  },
+  orderSummaryValue: {
+    fontSize: 14,
+    color: "#1E293B",
+  },
+  orderSummaryValueBold: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#0F294A",
+  },
+  totalLabel: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#0F294A",
+  },
+  totalAmountText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#E31E24",
+  },
+  driverInfoCardAdmin: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    padding: 16,
+    marginBottom: 20,
+  },
+  driverHeaderAdmin: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  driverHeaderAdminTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0F294A",
+  },
+  driverDetailText: {
+    fontSize: 14,
+    color: "#334155",
+    marginBottom: 4,
+  },
+  driverPlateBadgeAdminDetail: {
+    backgroundColor: "#FFC107",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#0F294A",
+    marginTop: 10,
+    alignItems: "center",
+  },
+  driverPlateLabelAdmin: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#0F294A",
+    letterSpacing: 1,
+  },
+  driverPlateNumberAdmin: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0F294A",
+    letterSpacing: 2,
+  },
+  driverVehicleModelAdmin: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0F294A",
+    marginTop: 2,
   },
 });

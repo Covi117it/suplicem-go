@@ -1,7 +1,11 @@
 import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { getCurrentUser, login, recoverPassword } from "@/services/authService";
-import { saveAuthSession } from "@/utils/authStorage";
+import {
+  saveAuthSession,
+  saveAcceptedTerms,
+  checkAcceptedTerms,
+} from "@/utils/authStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useContext, useState } from "react";
@@ -31,6 +35,15 @@ const LoginScreen = () => {
   const router = useRouter();
   const { showAlert } = useAlert();
 
+  // Estados para el Modal de Términos y Condiciones
+  const [termsDisclaimerVisible, setTermsDisclaimerVisible] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [isCheckedAccepted, setIsCheckedAccepted] = useState(false);
+  const [pendingSessionData, setPendingSessionData] = useState<{
+    session: any;
+    user: any;
+  } | null>(null);
+
   const handleLogin = async () => {
     if (!email || !password) {
       showAlert({
@@ -49,7 +62,7 @@ const LoginScreen = () => {
         Alert.alert("¡Hola!", "");
         showAlert({
           message:
-            "Aún no has verificado tu cuenta. Por favor, revisa tu correo electrónico y haz clic en el enlace de verificación para activar tu cuenta. Si no lo encuentras, revisa tu carpeta de spam.",
+            "Aún no has verificado tu cuenta. Por favor, revisa tu correo electrónico y haz clic en el enlace de verificación para activar tu cuenta.",
           type: "info",
         });
         hide();
@@ -58,18 +71,23 @@ const LoginScreen = () => {
       const responseUser = await getCurrentUser(responseLogin?.data?.idToken);
 
       if (responseUser?.data?.success) {
-        if (responseUser?.data?.user?.status === "pending") {
-          Alert.alert("¡Hola!");
-          showAlert({
-            message:
-              "Hemos recibido tu registro y estamos revisando tu cuenta. Te avisaremos apenas esté todo listo para que puedas acceder. ¡Gracias por tu paciencia!",
-            type: "info",
-          });
+        const user = responseUser?.data?.user;
+
+        if (user?.status === "pending") {
+          const now = Date.now();
+          const newSession = {
+            token: responseLogin?.data?.idToken,
+            refreshToken: responseLogin?.data?.refreshToken,
+            expiresAt: now + parseInt(responseLogin?.data?.expiresIn) * 1000,
+          };
+          await saveAuthSession(newSession);
+          authContext.logIn(user);
           hide();
+          router.replace("/pending-approval");
           return;
         }
 
-        if (responseUser?.data?.user?.status === "inactive") {
+        if (user?.status === "inactive") {
           Alert.alert("¡Hola!", "");
           showAlert({
             message: "Cuenta suspendida temporalmente.",
@@ -78,6 +96,7 @@ const LoginScreen = () => {
           hide();
           return;
         }
+
         const now = Date.now();
         const newSession = {
           token: responseLogin?.data?.idToken,
@@ -85,8 +104,22 @@ const LoginScreen = () => {
           expiresAt: now + parseInt(responseLogin?.data?.expiresIn) * 1000,
         };
 
-        await saveAuthSession(newSession);
-        authContext.logIn(responseUser?.data?.user);
+        // Verificar si el usuario YA aceptó los términos previamente en este dispositivo
+        const alreadyAccepted = await checkAcceptedTerms(user.uid);
+
+        if (alreadyAccepted) {
+          await saveAuthSession(newSession);
+          authContext.logIn(user);
+        } else {
+          // Mostrar términos solo la primera vez que inicia sesión
+          setPendingSessionData({
+            session: newSession,
+            user,
+          });
+          setHasScrolledToBottom(false);
+          setIsCheckedAccepted(false);
+          setTermsDisclaimerVisible(true);
+        }
       } else {
         Alert.alert("Error", "");
         showAlert({
@@ -104,6 +137,46 @@ const LoginScreen = () => {
     hide();
   };
 
+  const handleAcceptTerms = async () => {
+    if (!pendingSessionData) return;
+    if (!hasScrolledToBottom || !isCheckedAccepted) return;
+
+    const session = pendingSessionData;
+    setTermsDisclaimerVisible(false);
+    setPendingSessionData(null);
+
+    if (session.user?.uid) {
+      await saveAcceptedTerms(session.user.uid);
+    }
+    await saveAuthSession(session.session);
+
+    // En iOS, esperar a que la animación del Modal termine para evitar congelamiento de navegación
+    setTimeout(() => {
+      authContext.logIn(session.user);
+    }, Platform.OS === "ios" ? 300 : 50);
+  };
+
+  const handleDeclineTerms = () => {
+    setTermsDisclaimerVisible(false);
+    setPendingSessionData(null);
+    showAlert({
+      message:
+        "Debes aceptar los Términos y Condiciones para poder ingresar a la plataforma Suplicem.",
+      type: "warning",
+    });
+  };
+
+  const handleScrollTerms = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 30;
+    const isBottom =
+      layoutMeasurement.height + contentOffset.y >=
+      contentSize.height - paddingToBottom;
+    if (isBottom && !hasScrolledToBottom) {
+      setHasScrolledToBottom(true);
+    }
+  };
+
   const handlePasswordReset = async () => {
     if (!recoveryEmail) {
       showAlert({
@@ -114,7 +187,6 @@ const LoginScreen = () => {
     }
 
     setModalVisible(false);
-
     show();
 
     const responseRecovery = await recoverPassword(recoveryEmail);
@@ -123,7 +195,7 @@ const LoginScreen = () => {
       Alert.alert("Recuperación");
       showAlert({
         message: `Se enviará un correo a ${recoveryEmail} para restablecer su contraseña.`,
-        type: "error",
+        type: "info",
       });
       setRecoveryEmail("");
     } else {
@@ -138,11 +210,15 @@ const LoginScreen = () => {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: "#ffffff" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Image
           source={require("../assets/images/logo2.png")}
           style={styles.logo}
@@ -230,7 +306,7 @@ const LoginScreen = () => {
           </Text>
         </View>
 
-        {/* Modal de recuperación */}
+        {/* Modal de Recuperar Contraseña */}
         <Modal
           transparent
           visible={modalVisible}
@@ -264,6 +340,142 @@ const LoginScreen = () => {
             </View>
           </View>
         </Modal>
+
+        {/* Modal Disclaimer de Términos y Condiciones (Bordes afilados y contenido real) */}
+        <Modal
+          transparent
+          visible={termsDisclaimerVisible}
+          animationType="slide"
+          onRequestClose={() => {}}
+        >
+          <View style={styles.termsModalOverlay}>
+            <View style={styles.termsModalCardSharp}>
+              <View style={styles.termsHeader}>
+                <Ionicons name="shield-checkmark-outline" size={30} color="#E31E24" />
+                <Text style={styles.termsTitleLarge}>Términos y Condiciones de Suplicem</Text>
+              </View>
+              <Text style={styles.termsSubtitleLarge}>
+                Por favor, desplázate hasta el final para leer el acuerdo de servicio antes de continuar.
+              </Text>
+
+              <View style={styles.termsScrollBox}>
+                <ScrollView
+                  onScroll={handleScrollTerms}
+                  scrollEventThrottle={16}
+                  showsVerticalScrollIndicator={true}
+                  style={styles.termsScrollViewArea}
+                >
+                  <Text style={styles.contractSectionHeader}>1. Descripción del Servicio Suplicem</Text>
+                  <Text style={styles.contractParagraph}>
+                    Suplicem es una plataforma de distribución y logística para la compra y despacho de cemento, agregados y materiales de construcción. Los pedidos se gestionan por fundas y toneladas con entregas directas a domicilio/obra o retiro en almacén.
+                  </Text>
+
+                  <Text style={styles.contractSectionHeader}>2. Registro y Responsabilidad de Cuenta</Text>
+                  <Text style={styles.contractParagraph}>
+                    El usuario garantiza que la información de registro (dirección de obra, número de cédula/RNC y contacto) es verídica. Cada cliente es responsable de garantizar un acceso adecuado para los vehículos pesados de transporte en el lugar de entrega designado.
+                  </Text>
+
+                  <Text style={styles.contractSectionHeader}>3. Modalidades de Pago y Comprobantes</Text>
+                  <Text style={styles.contractParagraph}>
+                    - <Text style={{ fontWeight: "bold" }}>Transferencia Bancaria:</Text> El cliente debe adjuntar la captura del comprobante oficial emitido por el banco para validar el pedido.
+                    {"\n\n"}- <Text style={{ fontWeight: "bold" }}>Pago a Crédito:</Text> La modalidad de crédito se otorga sujeta a acuerdos comerciales previos y límites de cuenta autorizados por la administración de Suplicem.
+                  </Text>
+
+                  <Text style={styles.contractSectionHeader}>4. Recepción de Mercancía y Garantía</Text>
+                  <Text style={styles.contractParagraph}>
+                    Al momento del descargue en la obra o almacén, el cliente o su representante debe verificar la cantidad de fundas recibidas y su estado. Cualquier novedad debe ser notificada de inmediato a través de los canales de atención.
+                  </Text>
+
+                  <Text style={styles.contractSectionHeader}>5. Política de Privacidad y Protección de Datos</Text>
+                  <Text style={styles.contractParagraph}>
+                    Los datos recabados se utilizan exclusivamente para la gestión de compras, emisión de facturas y coordinación logística de despacho. Suplicem no comparte información personal con terceros ajenos a la operación.
+                  </Text>
+
+                  <View style={styles.endOfDocumentContainer}>
+                    <Ionicons
+                      name={hasScrolledToBottom ? "checkmark-circle" : "arrow-down-circle-outline"}
+                      size={22}
+                      color={hasScrolledToBottom ? "#2e7d32" : "#999"}
+                    />
+                    <Text
+                      style={[
+                        styles.endOfDocumentText,
+                        hasScrolledToBottom && { color: "#2e7d32" },
+                      ]}
+                    >
+                      {hasScrolledToBottom
+                        ? "Has leído todo el contrato de servicio."
+                        : "Continúa desplazándote hasta el final..."}
+                    </Text>
+                  </View>
+                </ScrollView>
+              </View>
+
+              {/* Casilla de verificación (Checkbox) */}
+              <TouchableOpacity
+                disabled={!hasScrolledToBottom}
+                style={[
+                  styles.checkboxRow,
+                  !hasScrolledToBottom && styles.checkboxRowDisabled,
+                ]}
+                onPress={() => setIsCheckedAccepted(!isCheckedAccepted)}
+              >
+                <Ionicons
+                  name={isCheckedAccepted ? "checkbox" : "square-outline"}
+                  size={24}
+                  color={
+                    !hasScrolledToBottom
+                      ? "#b0bec5"
+                      : isCheckedAccepted
+                      ? "#E31E24"
+                      : "#333"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.checkboxLabel,
+                    !hasScrolledToBottom && { color: "#b0bec5" },
+                  ]}
+                >
+                  He leído y acepto los Términos y Condiciones de Suplicem.
+                </Text>
+              </TouchableOpacity>
+
+              {/* Botones de Aceptar y Declinar con bordes rectos */}
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  disabled={!hasScrolledToBottom}
+                  style={[
+                    styles.declineButtonSharp,
+                    !hasScrolledToBottom && styles.buttonDisabledSharp,
+                  ]}
+                  onPress={handleDeclineTerms}
+                >
+                  <Text
+                    style={[
+                      styles.declineButtonText,
+                      !hasScrolledToBottom && { color: "#90a4ae" },
+                    ]}
+                  >
+                    Declinar
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  disabled={!hasScrolledToBottom || !isCheckedAccepted}
+                  style={[
+                    styles.acceptButtonSharp,
+                    (!hasScrolledToBottom || !isCheckedAccepted) &&
+                      styles.buttonDisabledSharp,
+                  ]}
+                  onPress={handleAcceptTerms}
+                >
+                  <Text style={styles.acceptButtonTextSharp}>Aceptar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -272,32 +484,45 @@ const LoginScreen = () => {
 export default LoginScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "flex-start",
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
     paddingHorizontal: 24,
-    paddingTop: 150,
+    paddingVertical: 30,
     backgroundColor: "#ffffff",
   },
   logo: {
-    width: 250,
-    height: 250,
+    width: 200,
+    height: 140,
     alignSelf: "center",
-    marginBottom: 10,
+    marginBottom: 20,
   },
-  input: {
-    height: 50,
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     borderColor: "#ccc",
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 4,
     paddingHorizontal: 16,
     marginBottom: 16,
     backgroundColor: "#fdfdfd",
+    height: 50,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  eyeIcon: {
+    marginLeft: 8,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#000",
   },
   button: {
     backgroundColor: "#E31E24",
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 4,
     alignItems: "center",
     marginTop: 8,
   },
@@ -306,18 +531,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  secondaryButton: {
-    marginTop: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    backgroundColor: "#0F294A",
-    borderRadius: 8,
-  },
-  secondaryButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
-  },
   linkButton: {
     marginTop: 14,
     alignItems: "center",
@@ -325,6 +538,19 @@ const styles = StyleSheet.create({
   linkText: {
     color: "#E31E24",
     fontSize: 14,
+    textDecorationLine: "underline",
+  },
+  termsContainer: {
+    marginTop: 20,
+    paddingHorizontal: 10,
+  },
+  termsText: {
+    textAlign: "center",
+    fontSize: 13,
+    color: "#555",
+  },
+  linkInline: {
+    color: "#E31E24",
     textDecorationLine: "underline",
   },
   modalOverlay: {
@@ -336,7 +562,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: "#fff",
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 6,
     width: "85%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -355,7 +581,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderColor: "#ccc",
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 4,
     paddingHorizontal: 12,
     marginBottom: 14,
     backgroundColor: "#f9f9f9",
@@ -363,7 +589,7 @@ const styles = StyleSheet.create({
   modalButton: {
     backgroundColor: "#E31E24",
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 4,
     alignItems: "center",
     marginBottom: 10,
   },
@@ -378,39 +604,139 @@ const styles = StyleSheet.create({
     textAlign: "center",
     textDecorationLine: "underline",
   },
-  inputContainer: {
+
+  // Estilos del Modal de Términos con bordes más afilados/rectos y área más grande
+  termsModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "android" ? 36 : 16,
+  },
+  termsModalCardSharp: {
+    backgroundColor: "#ffffff",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#d0d0d0",
+    padding: 16,
+    width: "96%",
+    maxHeight: Platform.OS === "android" ? "78%" : "84%",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    paddingBottom: Platform.OS === "android" ? 20 : 16,
+  },
+  termsHeader: {
     flexDirection: "row",
     alignItems: "center",
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: "#fdfdfd",
-    height: 50,
+    gap: 10,
+    marginBottom: 6,
   },
-  inputIcon: {
-    marginRight: 8,
-  },
-  eyeIcon: {
-    marginLeft: 8,
-  },
-  textInput: {
+  termsTitleLarge: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0F294A",
     flex: 1,
-    fontSize: 16,
-    color: "#000",
   },
-  termsContainer: {
-    marginTop: 20,
-    paddingHorizontal: 10,
-  },
-  termsText: {
-    textAlign: "center",
+  termsSubtitleLarge: {
     fontSize: 13,
     color: "#555",
+    marginBottom: 10,
   },
-  linkInline: {
-    color: "#E31E24",
-    textDecorationLine: "underline",
+  termsScrollBox: {
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: 12,
+    backgroundColor: "#fafafa",
+    maxHeight: Platform.OS === "android" ? 260 : 340,
+  },
+  termsScrollViewArea: {
+    maxHeight: Platform.OS === "android" ? 245 : 320,
+  },
+  contractSectionHeader: {
+    fontWeight: "bold",
+    fontSize: 15,
+    color: "#0F294A",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  contractParagraph: {
+    fontSize: 14,
+    color: "#444",
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  endOfDocumentContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: "#f0f4f8",
+    borderRadius: 4,
+    alignSelf: "stretch",
+    justifyContent: "center",
+  },
+  endOfDocumentText: {
+    color: "#666",
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  checkboxRowDisabled: {
+    opacity: 0.6,
+  },
+  checkboxLabel: {
+    fontSize: 13,
+    color: "#222",
+    fontWeight: "600",
+    flex: 1,
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+  declineButtonSharp: {
+    flex: 1,
+    backgroundColor: "#eceff1",
+    borderColor: "#cfd8dc",
+    borderWidth: 1,
+    paddingVertical: 14,
+    borderRadius: 4,
+    alignItems: "center",
+  },
+  declineButtonText: {
+    color: "#37474f",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  acceptButtonSharp: {
+    flex: 1,
+    backgroundColor: "#E31E24",
+    paddingVertical: 14,
+    borderRadius: 4,
+    alignItems: "center",
+  },
+  buttonDisabledSharp: {
+    backgroundColor: "#cfd8dc",
+    borderColor: "#cfd8dc",
+  },
+  acceptButtonTextSharp: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "bold",
   },
 });

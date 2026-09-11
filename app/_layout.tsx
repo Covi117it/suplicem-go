@@ -64,6 +64,13 @@ function AppContent() {
             title: "Política de Privacidad",
           }}
         />
+        <Stack.Screen
+          name="pending-approval"
+          options={{
+            headerShown: false,
+            animation: "none",
+          }}
+        />
       </Stack>
       <LoadingOverlay visible={isLoading} />
     </>

@@ -4,7 +4,7 @@ import { getBaseUrl } from "./api";
 
 const protectedApi = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 10000,
+  timeout: 45000,
 });
 
 // Interceptor

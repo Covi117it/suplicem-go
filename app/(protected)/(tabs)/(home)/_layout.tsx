@@ -9,16 +9,16 @@ export default function HomeLayout() {
         options={{ title: "Home", headerShown: false }}
       />
       <Stack.Screen
+        name="(admin)"
+        options={{ headerShown: false, title: "Administración" }}
+      />
+      <Stack.Screen
         name="(client)"
-        options={{ headerShown: true, title: "Cliente" }}
+        options={{ headerShown: false, title: "Cliente" }}
       />
       <Stack.Screen
         name="(driver)"
-        options={{ headerShown: true, title: "Conductor" }}
-      />
-      <Stack.Screen
-        name="(settings)"
-        options={{ headerShown: true, title: "Configuración" }}
+        options={{ headerShown: false, title: "Conductor" }}
       />
     </Stack>
   );

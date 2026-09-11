@@ -9,8 +9,16 @@ export default function ClientSettingsLayout() {
         options={{ title: "Configuración", headerShown: false }}
       />
       <Stack.Screen
+        name="user-requests"
+        options={{ title: "Solicitudes de Registro", headerShown: false }}
+      />
+      <Stack.Screen
         name="user-management"
         options={{ title: "Crear usuario", headerShown: false }}
+      />
+      <Stack.Screen
+        name="create-user"
+        options={{ title: "Crear usuario en servidor", headerShown: false }}
       />
       <Stack.Screen
         name="create-product"

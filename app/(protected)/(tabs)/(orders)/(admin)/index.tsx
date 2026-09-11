@@ -1,11 +1,8 @@
-import AdminOrdersScreen from "../../(home)/(admin)/admin-orders";
+import UserRequestsScreen from "../../(settings)/(admin)/user-requests";
+import React from "react";
 
 const AdminOrdersMainScreen: React.FC = () => {
-  return (
-    <>
-      <AdminOrdersScreen />
-    </>
-  );
+  return <UserRequestsScreen />;
 };
 
 export default AdminOrdersMainScreen;

@@ -76,7 +76,7 @@ const statusColors: Record<OrderStatus, string> = {
 const AdminOrdersScreen = () => {
   const { orders, setOrders } = useOrders();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | "Todos">(
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "Todos" | "Alertas IA">(
     "Todos"
   );
   const { show, hide } = useLoading();
@@ -152,7 +152,11 @@ const AdminOrdersScreen = () => {
       (order.userId && order.userId.toLowerCase().includes(searchLower));
 
     const matchesStatus =
-      statusFilter === "Todos" || order.status === statusFilter;
+      statusFilter === "Todos"
+        ? true
+        : statusFilter === ("Alertas IA" as any)
+        ? (order as any).aiRiskFlag === true
+        : order.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -188,23 +192,27 @@ const AdminOrdersScreen = () => {
         />
 
         <View style={styles.filterContainer}>
-          {["Todos", ...STATUS_OPTIONS].map((status) => (
+          {["Todos", "Alertas IA", ...STATUS_OPTIONS].map((status) => (
             <TouchableOpacity
               key={status}
               style={[
                 styles.filterButton,
-                statusFilter === status && styles.filterButtonActive,
+                status === "Alertas IA" && { borderColor: "#D32F2F" },
+                statusFilter === status && (status === "Alertas IA" ? { backgroundColor: "#D32F2F" } : styles.filterButtonActive),
               ]}
               onPress={() => setStatusFilter(status as any)}
             >
               <Text
                 style={[
                   styles.filterButtonText,
+                  status === "Alertas IA" && { color: statusFilter === status ? "#fff" : "#D32F2F" },
                   statusFilter === status && { color: "#fff" },
                 ]}
               >
                 {status === "Todos"
                   ? "Todos"
+                  : status === "Alertas IA"
+                  ? "⚠️ Alertas IA"
                   : mapStatusToDisplay(status as OrderStatus)}
               </Text>
             </TouchableOpacity>
@@ -223,10 +231,18 @@ const AdminOrdersScreen = () => {
           .map((order) => (
             <TouchableOpacity
               key={order.id}
-              style={styles.card}
+              style={[styles.card, (order as any).aiRiskFlag && styles.cardAiRisk]}
               activeOpacity={0.8}
               onPress={() => handleViewDetails(order.id)}
             >
+              {(order as any).aiRiskFlag && (
+                <View style={styles.aiAlertBanner}>
+                  <Ionicons name="warning-outline" size={18} color="#991B1B" />
+                  <Text style={styles.aiAlertText}>
+                    Alerta de Seguridad: Contenido posiblemente alterado con inteligencia artificial
+                  </Text>
+                </View>
+              )}
               <View style={styles.infoRow}>
                 <Text style={styles.id}>
                   {ORDER_PREFIX.ORD}
@@ -415,5 +431,24 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     backgroundColor: "#fff",
     elevation: 2,
+  },
+  cardAiRisk: {
+    borderColor: "#EF4444",
+    borderWidth: 1.5,
+  },
+  aiAlertBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEF2F2",
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  aiAlertText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#991B1B",
+    flex: 1,
   },
 });

@@ -42,9 +42,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(orders)"
         options={{
-          title: authContext?.user?.userType === ROLE.DRIVER ? "Viajes" : "Ordenes",
+          title:
+            authContext?.user?.userType === ROLE.DRIVER
+              ? "Viajes"
+              : authContext?.user?.userType === ROLE.ADMIN
+              ? "Verificaciones"
+              : "Ordenes",
           tabBarIcon: ({ color }) => (
-            <Ionicons name="paper-plane" size={28} color={color} />
+            <Ionicons
+              name={
+                authContext?.user?.userType === ROLE.ADMIN
+                  ? "shield-checkmark-outline"
+                  : "paper-plane"
+              }
+              size={28}
+              color={color}
+            />
           ),
         }}
       />

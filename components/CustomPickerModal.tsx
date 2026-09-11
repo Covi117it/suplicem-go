@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 type Option = {
   label: string;
@@ -33,6 +34,9 @@ const CustomPickerModal: React.FC<Props> = ({
     setModalVisible(false);
   };
 
+  const selectedLabel =
+    options.find((opt) => opt.value === selectedValue)?.label || "Seleccionar";
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
@@ -40,10 +44,10 @@ const CustomPickerModal: React.FC<Props> = ({
       <TouchableOpacity
         style={styles.selectBox}
         onPress={() => setModalVisible(true)}
+        activeOpacity={0.7}
       >
-        <Text style={styles.selectedText}>
-          {options.find((opt) => opt.value === selectedValue)?.label || "Seleccionar"}
-        </Text>
+        <Text style={styles.selectedText}>{selectedLabel}</Text>
+        <Ionicons name="chevron-down" size={20} color="#E31E24" style={styles.chevronIcon} />
       </TouchableOpacity>
 
       <Modal transparent visible={modalVisible} animationType="fade">
@@ -53,15 +57,33 @@ const CustomPickerModal: React.FC<Props> = ({
           onPressOut={() => setModalVisible(false)}
         >
           <View style={styles.modalContainer}>
+            {/* Barrita superior indicadora de desplegable */}
+            <View style={styles.modalHandleBar} />
+            <Text style={styles.modalHeaderTitle}>{label}</Text>
+
             <FlatList
               data={options}
-              keyExtractor={(item) => item.value}
+              keyExtractor={(item, index) => `${item.value}_${index}`}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.option}
+                  style={[
+                    styles.option,
+                    item.value === selectedValue && styles.optionSelected,
+                  ]}
                   onPress={() => handleSelect(item.value)}
                 >
-                  <Text style={styles.optionText}>{item.label}</Text>
+                  <Text
+                    style={[
+                      styles.optionText,
+                      item.value === selectedValue && styles.optionTextSelected,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.value === selectedValue && (
+                    <Ionicons name="checkmark" size={18} color="#E31E24" />
+                  )}
                 </TouchableOpacity>
               )}
             />
@@ -79,38 +101,84 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0F294A",
     marginBottom: 6,
   },
   selectBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: "#dcdcdc",
     borderRadius: 8,
-    padding: 12,
-    backgroundColor: "#fff",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: "#ffffff",
   },
   selectedText: {
-    fontSize: 16,
-    color: "#000",
+    fontSize: 15,
+    color: "#222",
+    fontWeight: "500",
+    flex: 1,
+  },
+  chevronIcon: {
+    marginLeft: 8,
   },
   overlay: {
     flex: 1,
-    backgroundColor: "#00000099",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
     justifyContent: "center",
-    padding: 32,
+    padding: 24,
   },
   modalContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    maxHeight: "75%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHandleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#ccc",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  modalHeaderTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0F294A",
+    marginBottom: 12,
+    textAlign: "center",
   },
   option: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+  optionSelected: {
+    backgroundColor: "#fff8f8",
   },
   optionText: {
-    fontSize: 16,
-    color: "#000",
+    fontSize: 15,
+    color: "#333",
+  },
+  optionTextSelected: {
+    fontWeight: "bold",
+    color: "#E31E24",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
   },
 });

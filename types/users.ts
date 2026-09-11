@@ -30,6 +30,7 @@ export type User = {
   userType: "client" | "driver";
   addresses: Address[];
   vehicle?: VehicleData;
+  status?: string;
 };
 
 export interface RegisterFormData extends User {

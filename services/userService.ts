@@ -1,6 +1,5 @@
 import { RegisterFormData } from "@/types/users";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import api from "./api";
 import { safeRequest } from "./apiSafe";
 import protectedApi from "./protectedApi";
@@ -31,6 +30,7 @@ export async function registerForPushNotificationsAsync(): Promise<
       return null;
     }
 
+    const Notifications = await import("expo-notifications");
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -66,7 +66,10 @@ export const updateDriverProfile = async (
   uid: string,
   phone: string,
   vehicleBrand: string,
-  vehicleModel: string
+  vehicleModel: string,
+  vehicleYear?: string,
+  vehicleTons?: string,
+  vehiclePlateNumber?: string
 ) => {
   try {
     const response = await protectedApi.patch("/users/update", {
@@ -75,6 +78,9 @@ export const updateDriverProfile = async (
       vehicle: {
         brand: vehicleBrand,
         model: vehicleModel,
+        year: vehicleYear || "",
+        tons: vehicleTons || "",
+        plateNumber: vehiclePlateNumber || "",
       },
     });
     return response.data;

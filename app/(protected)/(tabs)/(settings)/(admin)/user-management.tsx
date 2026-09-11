@@ -217,6 +217,15 @@ const UsersListScreen: React.FC = () => {
             </Text>
           </View>
 
+          {user.userType === "driver" && user.vehicle && (
+            <View style={styles.driverPlateBadgeAdmin}>
+              <Ionicons name="car-sport-outline" size={16} color="#0F294A" />
+              <Text style={styles.driverPlateAdminText}>
+                🛞 Placa: <Text style={{ fontWeight: "bold" }}>{user.vehicle.plateNumber || "No registrada"}</Text> ({user.vehicle.brand} {user.vehicle.model})
+              </Text>
+            </View>
+          )}
+
           {["pending", "inactive"].includes(user.status) ? (
             <TouchableOpacity
               style={styles.activateButton}
@@ -326,5 +335,22 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  driverPlateBadgeAdmin: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#F1F5F9",
+    borderColor: "#CBD5E1",
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  driverPlateAdminText: {
+    fontSize: 13,
+    color: "#0F294A",
   },
 });

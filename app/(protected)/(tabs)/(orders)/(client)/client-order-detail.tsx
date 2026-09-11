@@ -4,6 +4,7 @@ import { useLoading } from "@/context/loadingContext";
 import { useOrders } from "@/context/orderContext";
 import { getDriverLocation, getTripByOrderId } from "@/services/tripsService";
 import { formatRD } from "@/utils/currencyUtils";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -173,11 +174,30 @@ const OrderDetailScreen: React.FC = () => {
 
         <CheckRender allowed={trip?.assignedDriverId}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Datos del conductor</Text>
-            <Text style={styles.value}>
-              👤 {trip?.driver?.names} {trip?.driver?.lastNames}
-            </Text>
-            <Text style={styles.value}>📞 {trip?.driver?.phone}</Text>
+            <Text style={styles.sectionTitle}>🚚 Conductor y Vehículo de Despacho</Text>
+            <View style={styles.driverInfoCard}>
+              <Text style={styles.value}>
+                👤 <Text style={{ fontWeight: "bold" }}>Conductor:</Text> {trip?.driver?.names} {trip?.driver?.lastNames}
+              </Text>
+              <Text style={styles.value}>
+                📞 <Text style={{ fontWeight: "bold" }}>Teléfono:</Text> {trip?.driver?.phone}
+              </Text>
+
+              {trip?.driver?.vehicle && (
+                <View style={styles.driverPlateBadge}>
+                  <Ionicons name="car-sport" size={20} color="#0F294A" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.driverPlateLabel}>NÚMERO DE PLACA VEHICULAR</Text>
+                    <Text style={styles.driverPlateNumber}>
+                      {trip?.driver?.vehicle?.plateNumber || "No registrada"}
+                    </Text>
+                    <Text style={styles.driverVehicleModel}>
+                      {trip?.driver?.vehicle?.brand} {trip?.driver?.vehicle?.model} {trip?.driver?.vehicle?.year ? `(${trip?.driver?.vehicle?.year})` : ""}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
 
           <TouchableOpacity
@@ -442,5 +462,41 @@ const styles = StyleSheet.create({
   bold: {
     fontWeight: "600",
     color: "#222",
+  },
+  driverInfoCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+  },
+  driverPlateBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+  },
+  driverPlateLabel: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#64748B",
+    letterSpacing: 0.5,
+  },
+  driverPlateNumber: {
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#0F294A",
+    marginTop: 2,
+  },
+  driverVehicleModel: {
+    fontSize: 12,
+    color: "#475569",
+    marginTop: 2,
   },
 });
