@@ -2,7 +2,7 @@ import CheckRender from "@/components/CheckRender";
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { useLoading } from "@/context/loadingContext";
 import { useOrders } from "@/context/orderContext";
-import { getDriverLocation, getTripByOrderId } from "@/services/tripsService";
+import { getOrderTracking } from "@/services/orderService";
 import { formatRD } from "@/utils/currencyUtils";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -52,34 +52,22 @@ const OrderDetailScreen: React.FC = () => {
   );
 
   const refreshDriverLocationAndTripStatus = async () => {
-    // Asegúrate de que la orden seleccionada exista antes de hacer la llamada
     if (!selectedOrder) return;
 
-    const tripResponse = await getTripByOrderId(selectedOrder.id);
-    console.log("tripResponse");
-    console.log(tripResponse);
-
-    if (tripResponse?.success && tripResponse?.trip) {
-      setTrip(tripResponse?.trip);
-      if (
-        tripResponse?.trip?.status === "accepted" ||
-        tripResponse?.trip?.status === "started"
-      ) {
-        const driverLocationResponse = await getDriverLocation(
-          tripResponse?.trip?.assignedDriverId
-        );
-        console.log("driverLocationResponse");
-        console.log(driverLocationResponse);
-        if (
-          driverLocationResponse?.success &&
-          driverLocationResponse?.location
-        ) {
+    try {
+      const response = await getOrderTracking(selectedOrder.id);
+      if (response?.success && response?.data?.tracking) {
+        const { trip, location } = response.data.tracking;
+        if (trip) setTrip(trip);
+        if (location) {
           setDriverLocation({
-            latitude: driverLocationResponse?.location?.lat,
-            longitude: driverLocationResponse?.location?.lng,
+            latitude: location.latitude,
+            longitude: location.longitude,
           });
         }
       }
+    } catch (error) {
+      console.error("Error al obtener tracking de orden:", error);
     }
   };
 

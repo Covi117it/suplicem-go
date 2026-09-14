@@ -6,7 +6,7 @@ import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import { useMountEffect } from "@/hooks/lifeCicle";
-import { markAsDelivered, orderDelivered } from "@/services/orderService";
+import { completeDeliveryWithProof } from "@/services/orderService";
 import { sendDriverLocation, startOrCancelrip } from "@/services/tripsService";
 import { formatRD } from "@/utils/currencyUtils";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -186,54 +186,29 @@ const DriverOrderDetailScreen: React.FC = () => {
 
     try {
       show();
-      console.log(
-        "✅ Enviando entrega con foto y comentario:",
+      const response = await completeDeliveryWithProof(
         currentOrder.orderId,
+        currentOrder.deliveryIndex,
         deliveryImage,
-        deliveryComment,
-        currentOrder.deliveryIndex
+        deliveryComment
       );
 
-      const response = await markAsDelivered(
-        currentOrder.orderId,
-        deliveryImage,
-        deliveryComment,
-        currentOrder.deliveryIndex
-      );
-      
-      console.log(
-        "✅ Respuesta completa del servicio markAsDelivered:",
-        response
-      );
-
-      if (response.success) {
-        const responseDelivered = await orderDelivered(
+      if (response?.success) {
+        const updatedTrip = updateDeliveryStatus(
+          trip,
           currentOrder.orderId,
-          currentOrder.deliveryIndex
+          currentOrder.deliveryIndex,
+          "delivered"
         );
-
-        if (responseDelivered.success) {
-          const updatedTrip = updateDeliveryStatus(
-            trip,
-            currentOrder.orderId,
-            currentOrder.deliveryIndex,
-            "delivered"
-          );
-          saveTrip(updatedTrip);
-          showAlert({
-            message: "Entrega marcada como realizada con éxito.",
-            type: "success",
-          });
-          setIsDeliveryModalVisible(false);
-        } else {
-          showAlert({
-            message: "Error: No se pudo marcar como entregado.",
-            type: "error",
-          });
-        }
+        saveTrip(updatedTrip);
+        showAlert({
+          message: "Entrega marcada como realizada con éxito.",
+          type: "success",
+        });
+        setIsDeliveryModalVisible(false);
       } else {
         showAlert({
-          message: "Error: No se pudo marcar como entregado.",
+          message: response?.message || "Error al completar la entrega.",
           type: "error",
         });
       }

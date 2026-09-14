@@ -251,29 +251,24 @@ const CartScreen: React.FC = () => {
 
     show();
 
-    const formattedDeliveries = deliveries.flatMap((d) =>
-      d.products.map((p) => ({
-        productId: p.id,
-        address: d.address,
-        quantity: p.fundas,
-        unit: "fundas",
-      })),
-    );
+    const formattedDeliveries =
+      deliveryType === "domicilio"
+        ? deliveries.flatMap((d) =>
+            d.products.map((p) => ({
+              productId: p.id,
+              address: d.address,
+              quantity: p.fundas,
+              unit: "fundas",
+            }))
+          )
+        : [];
 
-    const formattedItems = Object.values(groupedCart).map((item) => {
-      const quantity = item.quantity;
-      const unitPrice = item.basePrice;
-      const fundas = item.fundas || 1;
-      const subtotal = fundas * unitPrice * quantity;
-      return {
-        productId: item.id,
-        name: item.name,
-        unit: "fundas",
-        quantity: fundas,
-        unitPrice,
-        subtotal,
-      };
-    });
+    const formattedItems = Object.values(groupedCart).map((item) => ({
+      productId: item.id,
+      quantity: item.fundas || 1,
+      name: item.name,
+      unitPrice: item.basePrice,
+    }));
 
     // Formatear observaciones incluyendo el banco seleccionado, RNC y tipo de transferencia
     let finalComments = "";
