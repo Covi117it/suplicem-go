@@ -4,7 +4,7 @@ import { useLoading } from "@/context/loadingContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import {
   aceptedTrip,
-  getDriverActualTrips,
+  getDriverActiveTrip,
   getTripAvailable,
   getTripDetail,
 } from "@/services/tripsService";
@@ -67,44 +67,15 @@ const DriverHomeScreen = () => {
   const validateTrips = async () => {
     try {
       setActualTripInProgress(false);
-      const actualTripResponse = await getDriverActualTrips();
+      const response = await getDriverActiveTrip();
 
-      if (actualTripResponse?.data?.trips?.length > 0) {
+      if (response?.success && response?.data?.hasActiveTrip && response?.data?.trip) {
         setActualTripInProgress(true);
-
-        const actualTrip = actualTripResponse?.data?.trips[0];
-
-        try {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== "granted") {
-            showAlert({
-              message: "Debe activar la ubicación",
-              type: "warning",
-            });
-            return;
-          }
-        } catch (error) {
-          console.error(error);
-          showAlert({
-            message: "No se pudo solicitar los permisos de ubicación.",
-            type: "error",
-          });
-          return;
-        }
-
-        const tripDetailResponse = await getTripDetail(actualTrip?.id);
-
-        if (tripDetailResponse?.success && tripDetailResponse?.trip) {
-          saveTrip(tripDetailResponse.trip);
-          setTimeout(() => {
-            router.push("/driver-order");
-          }, 100);
-        }
-
-        return;
+        saveTrip(response.data.trip);
+        router.push("/driver-order");
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error validando viaje activo:", error);
     }
   };
 

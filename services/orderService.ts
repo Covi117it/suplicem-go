@@ -1,6 +1,11 @@
 import { Address } from "@/types/users";
 import api from "./api";
+import { safeRequest } from "./apiSafe";
 import protectedApi from "./protectedApi";
+
+export const getOrderTracking = async (orderId: string) => {
+  return await safeRequest(() => protectedApi.get(`/orders/${orderId}/tracking`));
+};
 
 export const getOrders = async () => {
   const response = await api.get("/orders");
@@ -16,8 +21,8 @@ export const updateOrderStatus = async (
   return response.data;
 };
 
-export const getMyOrders = async () => {
-  const response = await protectedApi.get("/orders/my");
+export const getMyOrders = async (params?: { search?: string; status?: string }) => {
+  const response = await protectedApi.get("/orders/my", { params });
   return response.data;
 };
 
@@ -28,19 +33,19 @@ export const getOrderDetail = async (id: string) => {
 
 export const createOrder = async (order: {
   deliveryType: string;
-  deliveries: {
+  deliveries?: {
     productId: string;
     address?: Address;
     quantity: number;
-    unit: string;
+    unit?: string;
   }[];
   items: {
     productId: string;
-    name: string;
-    unit: string;
     quantity: number;
-    unitPrice: number;
-    subtotal: number;
+    name?: string;
+    unit?: string;
+    unitPrice?: number;
+    subtotal?: number;
   }[];
   comments?: string;
   receiptImage?: string;
@@ -119,3 +124,44 @@ export const markAsDelivered = async (
     };
   }
 };
+
+export const completeDeliveryWithProof = async (
+  orderId: string,
+  deliveryIndex: number,
+  imageUri: string,
+  comment?: string
+) => {
+  try {
+    const formData = new FormData();
+
+    const file: any = {
+      uri: imageUri,
+      name: "delivery-photo.jpg",
+      type: "image/jpeg",
+    };
+
+    formData.append("image", file);
+    if (comment) {
+      formData.append("comment", comment);
+    }
+
+    const response = await protectedApi.post(
+      `/orders/${orderId}/deliveries/${deliveryIndex}/complete`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Error en completeDeliveryWithProof:", error);
+    return {
+      success: false,
+      message: error?.response?.data?.message || "Error al completar la entrega.",
+    };
+  }
+};
+

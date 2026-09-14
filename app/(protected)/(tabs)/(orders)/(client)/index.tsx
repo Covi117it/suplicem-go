@@ -42,11 +42,11 @@ const ClientOrdersMainScreen: React.FC = () => {
     }, [])
   );
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (searchTerm = search) => {
     try {
       show();
-      const response = await getMyOrders();
-      setOrders(response.orders);
+      const response = await getMyOrders({ search: searchTerm });
+      setOrders(response.orders || []);
     } catch (error) {
       console.error("Error fetching orders:", error);
       showAlert({
@@ -56,38 +56,6 @@ const ClientOrdersMainScreen: React.FC = () => {
     }
     hide();
   };
-
-  const filteredOrders = orders.filter((order) => {
-    const searchTerm = search.trim().toLowerCase();
-
-    const matchesItem = order.items?.some(
-      (item) =>
-        typeof item?.name === "string" &&
-        item.name.toLowerCase().includes(searchTerm)
-    );
-
-    const matchesId =
-      typeof order.id === "string" &&
-      order.id.toLowerCase().includes(searchTerm);
-
-    const orderNumberString = String(order.orderNumber ?? "").toLowerCase();
-    const matchesOrderNumber = orderNumberString.includes(searchTerm);
-
-    return matchesItem || matchesId || matchesOrderNumber;
-  });
-
-  const sortedOrders = [...filteredOrders].sort((a, b) => {
-    const aPending = a.status === "pending";
-    const bPending = b.status === "pending";
-
-    if (aPending && !bPending) return -1;
-    if (!aPending && bPending) return 1;
-
-    const numA = parseInt(String(a.orderNumber ?? "0"), 10);
-    const numB = parseInt(String(b.orderNumber ?? "0"), 10);
-
-    return numB - numA;
-  });
 
   const renderStatusColor = (status: string) => {
     switch (status) {
@@ -141,7 +109,7 @@ const ClientOrdersMainScreen: React.FC = () => {
     >
       <View style={styles.headerRow}>
         <Text style={styles.title}>Histórico de órdenes</Text>
-        <TouchableOpacity onPress={fetchOrders} style={styles.refreshButton}>
+        <TouchableOpacity onPress={() => fetchOrders()} style={styles.refreshButton}>
           <Ionicons name="refresh" size={24} color="#A04A0E" />
         </TouchableOpacity>
       </View>
@@ -151,11 +119,14 @@ const ClientOrdersMainScreen: React.FC = () => {
         placeholderTextColor="#999"
         placeholder="Buscar..."
         value={search}
-        onChangeText={setSearch}
+        onChangeText={(text) => {
+          setSearch(text);
+          fetchOrders(text);
+        }}
       />
 
       <View style={styles.list}>
-        {sortedOrders.map((order) => (
+        {orders.map((order) => (
           <TouchableOpacity
             key={order.id}
             style={styles.card}

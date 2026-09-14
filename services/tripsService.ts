@@ -20,6 +20,10 @@ export const getDriverActualTrips = async () => {
   return await safeRequest(() => protectedApi.get("/trips/driver/actual"));
 };
 
+export const getDriverActiveTrip = async () => {
+  return await safeRequest(() => protectedApi.get("/trips/driver/active"));
+};
+
 export const aceptedTrip = async (id: string) => {
   return await safeRequest(() => protectedApi.patch(`/trips/${id}/accept`));
 };
