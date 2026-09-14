@@ -6,6 +6,9 @@ import { getMyOrders } from "@/services/orderService";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
+import StatusBadge from "@/components/StatusBadge";
+import InfoRow from "@/components/InfoRow";
+import ScreenHeader from "@/components/ScreenHeader";
 import {
   ScrollView,
   StyleSheet,
@@ -57,42 +60,6 @@ const ClientOrdersMainScreen: React.FC = () => {
     hide();
   };
 
-  const renderStatusColor = (status: string) => {
-    switch (status) {
-      case "delivered":
-      case "approved":
-        return "#4CAF50";
-      case "on_the_way":
-        return "#FF9800";
-      case "pending":
-        return "#FFC107";
-      case "canceled":
-        return "#F44336";
-      case "rejected":
-        return "#F44336";
-      default:
-        return "#999";
-    }
-  };
-
-  const translateStatus = (status: string) => {
-    switch (status) {
-      case "delivered":
-        return "Entregado";
-      case "approved":
-        return "Aprobado";
-      case "on_the_way":
-        return "En camino";
-      case "pending":
-        return "Pendiente";
-      case "canceled":
-        return "Cancelado";
-      case "rejected":
-        return "Rechazado";
-      default:
-        return status;
-    }
-  };
 
   // Se modificó la función para que no use 'setSelectedOrder'
   const goToOrderDetail = (id: string) => {
@@ -107,12 +74,10 @@ const ClientOrdersMainScreen: React.FC = () => {
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 100 }}
     >
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Histórico de órdenes</Text>
-        <TouchableOpacity onPress={() => fetchOrders()} style={styles.refreshButton}>
-          <Ionicons name="refresh" size={24} color="#A04A0E" />
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Histórico de órdenes"
+        onRefresh={() => fetchOrders()}
+      />
 
       <TextInput
         style={styles.searchInput}
@@ -137,32 +102,19 @@ const ClientOrdersMainScreen: React.FC = () => {
               {String(order.orderNumber ?? "N/A")}
             </Text>
 
-            <View style={styles.infoRow}>
-              <Text style={styles.label}>Productos:</Text>
-              <Text style={styles.value}>{order.items.length}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.label}>Fecha:</Text>
-              <Text style={styles.value}>
-                {new Date(order.createdAt).toLocaleDateString()}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.label}>Estado:</Text>
-              <Text
-                style={[
-                  styles.value,
-                  {
-                    color: renderStatusColor(order.status),
-                    fontWeight: "bold",
-                  },
-                ]}
-              >
-                {translateStatus(order.status)}
-              </Text>
-            </View>
+            <InfoRow
+              icon="cube-outline"
+              label="Productos"
+              value={order.items.length}
+            />
+            <InfoRow
+              icon="calendar-outline"
+              label="Fecha"
+              value={new Date(order.createdAt).toLocaleDateString()}
+            />
+            <InfoRow icon="shield-checkmark-outline" label="Estado">
+              <StatusBadge status={order.status} size="small" />
+            </InfoRow>
           </TouchableOpacity>
         ))}
       </View>
@@ -215,37 +167,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 10,
     color: "#333",
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  label: {
-    fontWeight: "600",
-    fontSize: 14,
-    color: "#444",
-  },
-  value: {
-    fontSize: 14,
-    color: "#555",
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  refreshButton: {
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e1c9b0",
-    backgroundColor: "#fff",
-    shadowColor: "#A04A0E",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 4,
   },
 });
