@@ -3,14 +3,17 @@ import StatusBadge from "@/components/StatusBadge";
 import InfoRow from "@/components/InfoRow";
 import ScreenHeader from "@/components/ScreenHeader";
 import { ORDER_PREFIX } from "@/constants/UserConstants";
+import { Palette } from "@/constants/theme";
+import { CartContext, Product } from "@/context/cartContext";
 import { useLoading } from "@/context/loadingContext";
 import { useOrders } from "@/context/orderContext";
 import { getOrderTracking } from "@/services/orderService";
 import { formatRD } from "@/utils/currencyUtils";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useContext, useState } from "react";
 import {
+  Alert,
   Dimensions,
   Image,
   Linking,
@@ -110,6 +113,51 @@ const OrderDetailScreen: React.FC = () => {
     }
   };
 
+  const { cart, setCartItems, addToCart } = useContext(CartContext);
+  const router = useRouter();
+
+  const handleRepeatOrder = () => {
+    if (!selectedOrder?.items || selectedOrder.items.length === 0) return;
+
+    const formattedProducts: Product[] = selectedOrder.items.map((item: any) => {
+      const qty = Number(item.quantity) || 100;
+      const unitPrice =
+        Number(item.unitPrice) ||
+        Number(item.price) ||
+        (item.subtotal ? Math.round(Number(item.subtotal) / qty) : 480);
+
+      return {
+        id: item.productId || item.id || `prod-${Math.random()}`,
+        name: item.name,
+        price: unitPrice,
+        fundas: qty,
+      };
+    });
+
+    const executeReorder = (replace: boolean) => {
+      if (replace) {
+        setCartItems(formattedProducts);
+      } else {
+        formattedProducts.forEach((p: Product) => addToCart(p));
+      }
+      router.push("/client-cart");
+    };
+
+    if (cart.length > 0) {
+      Alert.alert(
+        "Carrito con productos",
+        "Ya tienes materiales en tu carrito. ¿Deseas reemplazar el carrito con los productos de este pedido o sumarlos?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Sumar al carrito", onPress: () => executeReorder(false) },
+          { text: "Reemplazar carrito", style: "destructive", onPress: () => executeReorder(true) },
+        ]
+      );
+    } else {
+      executeReorder(true);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -126,6 +174,29 @@ const OrderDetailScreen: React.FC = () => {
         <InfoRow icon="shield-checkmark-outline" label="Estado">
           <StatusBadge status={selectedOrder.status} size="small" />
         </InfoRow>
+
+        {/* Banner de Repetir Pedido */}
+        <View style={styles.reorderCard}>
+          <View style={styles.reorderHeader}>
+            <View style={styles.reorderIconBadge}>
+              <Ionicons name="repeat" size={22} color={Palette.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reorderTitle}>¿Volver a pedir estos materiales?</Text>
+              <Text style={styles.reorderSubtitle}>
+                Carga los {selectedOrder.items?.length || 0} productos directamente a tu carrito
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.reorderButton}
+            onPress={handleRepeatOrder}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="cart-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+            <Text style={styles.reorderButtonText}>Repetir este pedido</Text>
+          </TouchableOpacity>
+        </View>
 
         <CheckRender allowed={trip !== null}>
           <InfoRow
@@ -461,5 +532,63 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#475569",
     marginTop: 2,
+  },
+  reorderCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 14,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    borderLeftWidth: 4,
+    borderLeftColor: Palette.primary,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  reorderHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 12,
+  },
+  reorderIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(227, 30, 36, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reorderTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: Palette.textDark,
+  },
+  reorderSubtitle: {
+    fontSize: 12,
+    color: Palette.textMuted,
+    marginTop: 2,
+  },
+  reorderButton: {
+    backgroundColor: Palette.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: Palette.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  reorderButtonText: {
+    color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 13,
   },
 });

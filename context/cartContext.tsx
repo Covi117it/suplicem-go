@@ -20,6 +20,7 @@ type CartState = {
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
+  setCartItems: (items: Product[], type?: DeliveryType) => void;
 };
 
 const cartStorageKey = "cart-key";
@@ -32,6 +33,7 @@ export const CartContext = createContext<CartState>({
   addToCart: () => {},
   removeFromCart: () => {},
   clearCart: () => {},
+  setCartItems: () => {},
 });
 
 export const CartProvider = ({ children }: PropsWithChildren) => {
@@ -121,6 +123,13 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
     saveCart(cart, type);
   };
 
+  const setCartItems = (items: Product[], newType?: DeliveryType) => {
+    const finalType = newType || deliveryType;
+    setCart(items);
+    if (newType) setDeliveryType(newType);
+    saveCart(items, finalType);
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -131,6 +140,7 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
         addToCart,
         removeFromCart,
         clearCart,
+        setCartItems,
       }}
     >
       {children}
