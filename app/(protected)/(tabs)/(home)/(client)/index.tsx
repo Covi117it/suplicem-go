@@ -1,18 +1,19 @@
-import ProductCatalogCard, { Product } from "@/components/home/ProductCatalogCard";
-import ProductQuantityModal from "@/components/home/ProductQuantityModal";
-import PromoBannerCarousel from "@/components/home/PromoBannerCarousel";
+import { ProductCatalogCard, Product } from "@/components/home/ProductCatalogCard";
+import { ProductQuantityModal } from "@/components/home/ProductQuantityModal";
+import { ProductSkeletonCard } from "@/components/home/ProductSkeletonCard";
+import { PromoBannerCarousel } from "@/components/home/PromoBannerCarousel";
 import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
 import { CartContext } from "@/context/cartContext";
-import { useLoading } from "@/context/loadingContext";
 import { useMountEffect } from "@/hooks/lifeCicle";
 import { getProducts } from "@/services/productService";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useContext, useState } from "react";
 import {
+  FlatList,
   Image,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -20,22 +21,39 @@ import {
   View,
 } from "react-native";
 
+const SKELETON_ITEMS = ["sk-1", "sk-2", "sk-3", "sk-4"];
+
 const ClientHomeScreen: React.FC = () => {
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedProductForQty, setSelectedProductForQty] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState("1");
 
   const router = useRouter();
-  const { show, hide } = useLoading();
   const { addToCart, cart, updateProductInCart } = useContext(CartContext);
   const { showAlert } = useAlert();
 
-  useMountEffect(async () => {
-    show();
-    const productsResponse = await getProducts();
-    hide();
-    setProducts(productsResponse?.products || []);
+  const fetchProducts = async (isPullToRefresh = false) => {
+    try {
+      if (isPullToRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      const productsResponse = await getProducts();
+      setProducts(productsResponse?.products || []);
+    } catch (error) {
+      console.error("Error al cargar productos:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useMountEffect(() => {
+    fetchProducts();
   });
 
   const filteredProducts = products.filter((product) =>
@@ -100,11 +118,8 @@ const ClientHomeScreen: React.FC = () => {
 
   const totalItems = cart.length;
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 100 }}
-    >
+  const renderHeader = () => (
+    <View>
       <View style={styles.topLogoContainer}>
         <Image
           source={require("@/assets/images/logo2.png")}
@@ -113,7 +128,6 @@ const ClientHomeScreen: React.FC = () => {
         />
       </View>
 
-      {/* Barra de Búsqueda y Carrito */}
       <View style={styles.header}>
         <TextInput
           placeholder="Buscar producto de construcción..."
@@ -133,19 +147,51 @@ const ClientHomeScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Banner Publicitario Rotativo */}
       <PromoBannerCarousel />
+    </View>
+  );
 
-      {/* Lista de Productos */}
-      <View style={styles.list}>
-        {filteredProducts?.map((item) => (
-          <ProductCatalogCard
-            key={item.id}
-            product={item}
-            onSelectQuantity={openQuantityModal}
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={loading ? (SKELETON_ITEMS as any) : filteredProducts}
+        keyExtractor={(item) => (loading ? item : item.id)}
+        renderItem={({ item }) => (
+          <View style={styles.itemWrapper}>
+            {loading ? (
+              <ProductSkeletonCard />
+            ) : (
+              <ProductCatalogCard
+                product={item}
+                onSelectQuantity={openQuantityModal}
+              />
+            )}
+          </View>
+        )}
+        ListHeaderComponent={renderHeader()}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={46} color="#999" />
+              <Text style={styles.emptyTitle}>No se encontraron productos</Text>
+              <Text style={styles.emptySubtitle}>
+                {`No hay resultados para "${search}". Intenta con otro término.`}
+              </Text>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchProducts(true)}
+            colors={[Palette.primary]}
+            tintColor={Palette.primary}
           />
-        ))}
-      </View>
+        }
+      />
 
       {/* Modal de Selección de Cantidad */}
       <ProductQuantityModal
@@ -155,7 +201,7 @@ const ClientHomeScreen: React.FC = () => {
         onClose={() => setSelectedProductForQty(null)}
         onConfirm={handleConfirmAddToCart}
       />
-    </ScrollView>
+    </View>
   );
 };
 
@@ -166,6 +212,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
     paddingTop: 30,
+  },
+  listContent: {
+    paddingBottom: 100,
   },
   topLogoContainer: {
     alignItems: "center",
@@ -208,6 +257,28 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 12,
+  },
+  itemWrapper: {
+    paddingHorizontal: 16,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 40,
+    paddingHorizontal: 30,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#444",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: "#888",
+    marginTop: 6,
+    textAlign: "center",
   },
   list: {
     paddingHorizontal: 16,

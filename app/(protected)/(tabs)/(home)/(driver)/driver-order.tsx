@@ -1,10 +1,9 @@
 import ConfirmationModal from "@/components/ConfirmationModal";
-import InfoRow from "@/components/InfoRow";
-import ScreenHeader from "@/components/ScreenHeader";
-import DeliveryProofModal from "@/components/driver/DeliveryProofModal";
-import DriverTripMap from "@/components/driver/DriverTripMap";
-import DriverTripOrderCard from "@/components/driver/DriverTripOrderCard";
-import TripActionButtons from "@/components/driver/TripActionButtons";
+import { InfoRow } from "@/components/InfoRow";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { DriverTripMap } from "@/components/driver/DriverTripMap";
+import { DriverTripOrderCard } from "@/components/driver/DriverTripOrderCard";
+import { TripActionButtons } from "@/components/driver/TripActionButtons";
 import { ROLE } from "@/constants/UserConstants";
 import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
@@ -12,12 +11,18 @@ import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import { useMountEffect } from "@/hooks/lifeCicle";
-import { completeDeliveryWithProof } from "@/services/orderService";
+import {
+  orderDelivered,
+  enqueueOfflineDelivery,
+  syncPendingDeliveries,
+} from "@/services/orderService";
 import { sendDriverLocation, startOrCancelrip } from "@/services/tripsService";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
+import {
+  startBackgroundLocationUpdates,
+  stopBackgroundLocationUpdates,
+} from "@/services/backgroundLocationTask";
 import React, { useContext, useState } from "react";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -40,13 +45,13 @@ const DriverOrderDetailScreen: React.FC = () => {
     orderId: string;
     deliveryIndex: number;
   } | null>(null);
-  const [deliveryImage, setDeliveryImage] = useState<string | null>(null);
-  const [deliveryComment, setDeliveryComment] = useState("");
 
   useMountEffect(async () => {
     if (trip?.status === "accepted" || trip?.status === "started") {
       startDriverLocationTracking();
     }
+    // Sincronizar automáticamente entregas offline pendientes
+    syncPendingDeliveries();
   });
 
   const startDriverLocationTracking = async () => {
@@ -60,6 +65,7 @@ const DriverOrderDetailScreen: React.FC = () => {
     }
 
     try {
+      await startBackgroundLocationUpdates();
       await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
@@ -96,9 +102,10 @@ const DriverOrderDetailScreen: React.FC = () => {
       show();
       const response = await startOrCancelrip(trip.id, "started");
 
-      if (response.success) {
+        if (response.success) {
+        await stopBackgroundLocationUpdates();
         let updatedTrip = trip;
-        updatedTrip.status = "started";
+        updatedTrip.status = "canceled";
         saveTrip(updatedTrip);
         showAlert({
           message: "Viaje iniciado. Puedes comenzar la ruta.",
@@ -146,36 +153,17 @@ const DriverOrderDetailScreen: React.FC = () => {
 
   const handleOpenDeliveryModal = (orderId: string, deliveryIndex: number) => {
     setCurrentOrder({ orderId, deliveryIndex });
-    setDeliveryImage(null);
-    setDeliveryComment("");
     setIsDeliveryModalVisible(true);
   };
 
   const handleSendDelivery = async () => {
-    if (!deliveryImage) {
-      showAlert({
-        message: "Debe subir una foto para marcar la entrega.",
-        type: "warning",
-      });
-      return;
-    }
-    if (!deliveryComment) {
-      showAlert({
-        message: "Debe agregar un comentario a la entrega.",
-        type: "warning",
-      });
-      return;
-    }
-
     if (!currentOrder) return;
 
     try {
       show();
-      const response = await completeDeliveryWithProof(
+      const response = await orderDelivered(
         currentOrder.orderId,
-        currentOrder.deliveryIndex,
-        deliveryImage,
-        deliveryComment
+        currentOrder.deliveryIndex
       );
 
       if (response?.success) {
@@ -197,66 +185,28 @@ const DriverOrderDetailScreen: React.FC = () => {
           type: "error",
         });
       }
-    } catch (error) {
-      console.error("❌ Error al marcar como entregado:", error);
+    } catch (error: any) {
+      console.warn("⚠️ Sin conexión: guardando entrega en cola offline...", error?.message || error);
+      await enqueueOfflineDelivery(
+        currentOrder.orderId,
+        currentOrder.deliveryIndex
+      );
+
+      const updatedTrip = updateDeliveryStatus(
+        trip,
+        currentOrder.orderId,
+        currentOrder.deliveryIndex,
+        "delivered"
+      );
+      saveTrip(updatedTrip);
+
       showAlert({
-        message: "Error: Ocurrió un error al marcar la entrega.",
-        type: "error",
+        message: "Sin conexión. La entrega se guardó en tu teléfono y se sincronizará automáticamente.",
+        type: "info",
       });
+      setIsDeliveryModalVisible(false);
     } finally {
       hide();
-    }
-  };
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      showAlert({
-        message: "Se necesita permiso para acceder a la galería.",
-        type: "warning",
-      });
-      return;
-    }
-
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      const manipResult = await ImageManipulator.manipulateAsync(
-        result.assets![0].uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      setDeliveryImage(manipResult.uri);
-    }
-  };
-
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      showAlert({
-        message: "Se necesita permiso para acceder a la cámara.",
-        type: "warning",
-      });
-      return;
-    }
-
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      const manipResult = await ImageManipulator.manipulateAsync(
-        result.assets![0].uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      setDeliveryImage(manipResult.uri);
     }
   };
 
@@ -275,6 +225,7 @@ const DriverOrderDetailScreen: React.FC = () => {
       const response = await startOrCancelrip(trip.id, "available");
 
       if (response.success) {
+        await stopBackgroundLocationUpdates();
         let updatedTrip = trip;
         updatedTrip.status = "canceled";
         saveTrip(updatedTrip);
@@ -327,6 +278,7 @@ const DriverOrderDetailScreen: React.FC = () => {
       const response = await startOrCancelrip(trip.id, "completed");
 
       if (response.success) {
+        await stopBackgroundLocationUpdates();
         let updatedTrip = trip;
         updatedTrip.status = "completed";
         saveTrip(updatedTrip);
@@ -401,7 +353,7 @@ const DriverOrderDetailScreen: React.FC = () => {
       </View>
 
       <TripActionButtons
-        tripStatus={trip?.status}
+        tripStatus={trip?.status || ""}
         onStartTrip={handleStartTrip}
         onCompleteOrder={handleCompleteOrder}
         onCancel={() => setIsCancelModalVisible(true)}
@@ -410,7 +362,7 @@ const DriverOrderDetailScreen: React.FC = () => {
       <DriverTripMap
         location={location}
         orders={trip?.orders}
-        tripStatus={trip?.status}
+        tripStatus={trip?.status || ""}
       />
 
       <ConfirmationModal
@@ -423,15 +375,14 @@ const DriverOrderDetailScreen: React.FC = () => {
         cancelText="No, volver"
       />
 
-      <DeliveryProofModal
+      <ConfirmationModal
         visible={isDeliveryModalVisible}
-        onClose={() => setIsDeliveryModalVisible(false)}
-        deliveryImage={deliveryImage}
-        deliveryComment={deliveryComment}
-        onChangeComment={setDeliveryComment}
-        onTakePhoto={takePhoto}
-        onPickImage={pickImage}
-        onSubmit={handleSendDelivery}
+        title="Confirmar Entrega"
+        message="¿Confirmas que este pedido fue entregado en el destino?"
+        onConfirm={handleSendDelivery}
+        onCancel={() => setIsDeliveryModalVisible(false)}
+        confirmText="Sí, entregar"
+        cancelText="Cancelar"
       />
     </ScrollView>
   );

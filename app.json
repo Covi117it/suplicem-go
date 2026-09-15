@@ -8,14 +8,26 @@
     "scheme": "suplicemgo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["location"],
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Suplicem necesita tu ubicación en segundo plano para rastrear el trayecto del camión hacia el cliente.",
+        "NSLocationWhenInUseUsageDescription": "Suplicem necesita tu ubicación para rastrear el trayecto de la entrega."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.enfoco.suplicemgo"
+      "package": "com.enfoco.suplicemgo",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -31,6 +43,14 @@
           "imageWidth": 250,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Suplicem necesita tu ubicación en segundo plano para rastrear el trayecto del camión hacia el cliente.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-secure-store",
