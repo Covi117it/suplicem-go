@@ -1,4 +1,7 @@
 import CheckRender from "@/components/CheckRender";
+import StatusBadge from "@/components/StatusBadge";
+import InfoRow from "@/components/InfoRow";
+import ScreenHeader from "@/components/ScreenHeader";
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { useLoading } from "@/context/loadingContext";
 import { useOrders } from "@/context/orderContext";
@@ -79,38 +82,6 @@ const OrderDetailScreen: React.FC = () => {
     );
   }
 
-  const translateStatus = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Pendiente";
-      case "requested":
-        return "Solicitud enviada";
-      case "on_the_way":
-        return "En camino";
-      case "delivered":
-        return "Entregado";
-      case "approved":
-        return "Aprobado";
-      default:
-        return status;
-    }
-  };
-
-  const renderStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "#FFC107";
-      case "requested":
-        return "#03A9F4";
-      case "on_the_way":
-        return "#FF9800";
-      case "delivered":
-      case "approved":
-        return "#4CAF50";
-      default:
-        return "#999";
-    }
-  };
 
   const getStepCompleted = (step: string) => {
     const stepIndex = TRACKING_STEPS.indexOf(step);
@@ -144,20 +115,24 @@ const OrderDetailScreen: React.FC = () => {
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 100 }}
     >
-      <Text style={styles.title}>Detalle de Orden</Text>
+      <ScreenHeader title="Detalle de Orden" showBack={true} />
 
       <View style={styles.section}>
-        <Text style={styles.label}>Número de Orden:</Text>
-        <Text style={styles.value}>
-          {ORDER_PREFIX.ORD}
-          {selectedOrder.orderNumber}
-        </Text>
-        <View style={{ marginBottom: 10 }} />
-        <CheckRender allowed={trip !== null}>
-          <Text style={styles.label}>Número de Viaje:</Text>
-          <Text style={styles.value}>{trip?.tripNumber}</Text>
+        <InfoRow
+          icon="receipt-outline"
+          label="Número de Orden"
+          value={`${ORDER_PREFIX.ORD}${selectedOrder.orderNumber}`}
+        />
+        <InfoRow icon="shield-checkmark-outline" label="Estado">
+          <StatusBadge status={selectedOrder.status} size="small" />
+        </InfoRow>
 
-          <View style={{ marginBottom: 10 }} />
+        <CheckRender allowed={trip !== null}>
+          <InfoRow
+            icon="navigate-outline"
+            label="Número de Viaje"
+            value={trip?.tripNumber}
+          />
         </CheckRender>
 
         <CheckRender allowed={trip?.assignedDriverId}>

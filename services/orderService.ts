@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Address } from "@/types/users";
 import api from "./api";
 import { safeRequest } from "./apiSafe";
@@ -164,4 +165,85 @@ export const completeDeliveryWithProof = async (
     };
   }
 };
+
+const OFFLINE_DELIVERY_KEY = "@suplicem_offline_deliveries";
+
+export interface OfflineDeliveryItem {
+  id: string;
+  orderId: string;
+  deliveryIndex: number;
+  createdAt: number;
+}
+
+export async function getPendingOfflineDeliveries(): Promise<OfflineDeliveryItem[]> {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_DELIVERY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error("❌ Error leyendo cola offline:", error);
+    return [];
+  }
+}
+
+export async function enqueueOfflineDelivery(
+  orderId: string,
+  deliveryIndex: number
+): Promise<OfflineDeliveryItem> {
+  const current = await getPendingOfflineDeliveries();
+  const newItem: OfflineDeliveryItem = {
+    id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    orderId,
+    deliveryIndex,
+    createdAt: Date.now(),
+  };
+
+  const updated = [...current, newItem];
+  await AsyncStorage.setItem(OFFLINE_DELIVERY_KEY, JSON.stringify(updated));
+  console.log(`💾 Entrega de orden ${orderId} guardada en cola local (Offline).`);
+  return newItem;
+}
+
+export async function removeOfflineDelivery(id: string): Promise<void> {
+  try {
+    const current = await getPendingOfflineDeliveries();
+    const filtered = current.filter((item) => item.id !== id);
+    await AsyncStorage.setItem(OFFLINE_DELIVERY_KEY, JSON.stringify(filtered));
+  } catch (error) {
+    console.error("❌ Error eliminando entrega de cola offline:", error);
+  }
+}
+
+export async function syncPendingDeliveries(): Promise<{
+  total: number;
+  synced: number;
+  failed: number;
+}> {
+  const pending = await getPendingOfflineDeliveries();
+  if (pending.length === 0) {
+    return { total: 0, synced: 0, failed: 0 };
+  }
+
+  console.log(`🔄 Sincronizando ${pending.length} entregas offline pendientes...`);
+  let synced = 0;
+  let failed = 0;
+
+  for (const item of pending) {
+    try {
+      const response = await orderDelivered(item.orderId, item.deliveryIndex);
+      if (response?.success) {
+        await removeOfflineDelivery(item.id);
+        synced++;
+        console.log(`✅ Entrega offline sincronizada: Orden ${item.orderId}, parada ${item.deliveryIndex}`);
+      } else {
+        failed++;
+      }
+    } catch (err: any) {
+      failed++;
+      console.warn(`⚠️ Aún sin conexión para sincronizar entrega ${item.id}:`, err?.message);
+    }
+  }
+
+  return { total: pending.length, synced, failed };
+}
 

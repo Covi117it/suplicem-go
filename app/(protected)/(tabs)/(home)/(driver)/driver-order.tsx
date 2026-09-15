@@ -1,31 +1,30 @@
-import CheckRender from "@/components/CheckRender";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import { ORDER_PREFIX, ROLE } from "@/constants/UserConstants";
+import { InfoRow } from "@/components/InfoRow";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { DriverTripMap } from "@/components/driver/DriverTripMap";
+import { DriverTripOrderCard } from "@/components/driver/DriverTripOrderCard";
+import { TripActionButtons } from "@/components/driver/TripActionButtons";
+import { ROLE } from "@/constants/UserConstants";
+import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
 import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import { useMountEffect } from "@/hooks/lifeCicle";
-import { completeDeliveryWithProof } from "@/services/orderService";
+import {
+  orderDelivered,
+  enqueueOfflineDelivery,
+  syncPendingDeliveries,
+} from "@/services/orderService";
 import { sendDriverLocation, startOrCancelrip } from "@/services/tripsService";
-import { formatRD } from "@/utils/currencyUtils";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useContext, useState } from "react";
 import {
-  Image,
-  Linking,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import MapView, { Marker } from "react-native-maps";
+  startBackgroundLocationUpdates,
+  stopBackgroundLocationUpdates,
+} from "@/services/backgroundLocationTask";
+import React, { useContext, useState } from "react";
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const DriverOrderDetailScreen: React.FC = () => {
   const [location, setLocation] = useState<{
@@ -35,26 +34,24 @@ const DriverOrderDetailScreen: React.FC = () => {
   const router = useRouter();
   const { trip, saveTrip } = useContext(AcceptedTripContext);
   const authContext = useContext(AuthContext);
-  const [expandedOrderIndex, setExpandedOrderIndex] = useState<number | null>(
-    null
-  );
+  const [expandedOrderIndex, setExpandedOrderIndex] = useState<number | null>(null);
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
 
-  // Nuevo estado para el modal de entrega
+  // Estado para el modal de entrega
   const [isDeliveryModalVisible, setIsDeliveryModalVisible] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<{
     orderId: string;
     deliveryIndex: number;
   } | null>(null);
-  const [deliveryImage, setDeliveryImage] = useState<string | null>(null);
-  const [deliveryComment, setDeliveryComment] = useState("");
 
   useMountEffect(async () => {
     if (trip?.status === "accepted" || trip?.status === "started") {
       startDriverLocationTracking();
     }
+    // Sincronizar automáticamente entregas offline pendientes
+    syncPendingDeliveries();
   });
 
   const startDriverLocationTracking = async () => {
@@ -68,19 +65,17 @@ const DriverOrderDetailScreen: React.FC = () => {
     }
 
     try {
+      await startBackgroundLocationUpdates();
       await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
           timeInterval: 5000,
           distanceInterval: 10,
         },
-        (location) => {
+        (loc) => {
           if (authContext?.user?.userType === ROLE.DRIVER) {
-            const { latitude, longitude } = location.coords;
+            const { latitude, longitude } = loc.coords;
             setLocation({ latitude, longitude });
-            console.log("Enviando location");
-            console.log("Latitud", latitude);
-            console.log("Longitud", longitude);
             sendDriverLocation(latitude, longitude);
           }
         }
@@ -105,14 +100,12 @@ const DriverOrderDetailScreen: React.FC = () => {
 
     try {
       show();
-      console.log("🚚 Iniciando viaje con ID:", trip.id);
-
       const response = await startOrCancelrip(trip.id, "started");
-      console.log("Respuesta iniciar viaje:", response);
 
-      if (response.success) {
+        if (response.success) {
+        await stopBackgroundLocationUpdates();
         let updatedTrip = trip;
-        updatedTrip.status = "started";
+        updatedTrip.status = "canceled";
         saveTrip(updatedTrip);
         showAlert({
           message: "Viaje iniciado. Puedes comenzar la ruta.",
@@ -136,13 +129,12 @@ const DriverOrderDetailScreen: React.FC = () => {
   };
 
   function updateDeliveryStatus(
-    trip: any,
+    tripData: any,
     orderId: string,
     deliveryIndex: number,
     newStatus: string
   ): any {
-    const updatedTrip = trip;
-
+    const updatedTrip = tripData;
     const order = updatedTrip.orders.find((o: any) => o.id === orderId);
 
     if (
@@ -161,36 +153,17 @@ const DriverOrderDetailScreen: React.FC = () => {
 
   const handleOpenDeliveryModal = (orderId: string, deliveryIndex: number) => {
     setCurrentOrder({ orderId, deliveryIndex });
-    setDeliveryImage(null);
-    setDeliveryComment("");
     setIsDeliveryModalVisible(true);
   };
 
   const handleSendDelivery = async () => {
-    if (!deliveryImage) {
-      showAlert({
-        message: "Debe subir una foto para marcar la entrega.",
-        type: "warning",
-      });
-      return;
-    }
-    if (!deliveryComment) {
-      showAlert({
-        message: "Debe agregar un comentario a la entrega.",
-        type: "warning",
-      });
-      return;
-    }
-
     if (!currentOrder) return;
 
     try {
       show();
-      const response = await completeDeliveryWithProof(
+      const response = await orderDelivered(
         currentOrder.orderId,
-        currentOrder.deliveryIndex,
-        deliveryImage,
-        deliveryComment
+        currentOrder.deliveryIndex
       );
 
       if (response?.success) {
@@ -212,73 +185,29 @@ const DriverOrderDetailScreen: React.FC = () => {
           type: "error",
         });
       }
-    } catch (error) {
-      console.error("❌ Error al marcar como entregado:", error);
+    } catch (error: any) {
+      console.warn("⚠️ Sin conexión: guardando entrega en cola offline...", error?.message || error);
+      await enqueueOfflineDelivery(
+        currentOrder.orderId,
+        currentOrder.deliveryIndex
+      );
+
+      const updatedTrip = updateDeliveryStatus(
+        trip,
+        currentOrder.orderId,
+        currentOrder.deliveryIndex,
+        "delivered"
+      );
+      saveTrip(updatedTrip);
+
       showAlert({
-        message: "Error: Ocurrió un error al marcar la entrega.",
-        type: "error",
+        message: "Sin conexión. La entrega se guardó en tu teléfono y se sincronizará automáticamente.",
+        type: "info",
       });
+      setIsDeliveryModalVisible(false);
     } finally {
       hide();
     }
-  };
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      showAlert({
-        message: "Se necesita permiso para acceder a la galería.",
-        type: "warning",
-      });
-      return;
-    }
-
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      const manipResult = await ImageManipulator.manipulateAsync(
-        result.assets![0].uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      setDeliveryImage(manipResult.uri);
-    }
-  };
-
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      showAlert({
-        message: "Se necesita permiso para acceder a la cámara.",
-        type: "warning",
-      });
-      return;
-    }
-
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      const manipResult = await ImageManipulator.manipulateAsync(
-        result.assets![0].uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      setDeliveryImage(manipResult.uri);
-    }
-  };
-
-  const handleCancel = () => {
-    setIsCancelModalVisible(true);
   };
 
   const confirmCancelTrip = async () => {
@@ -293,11 +222,10 @@ const DriverOrderDetailScreen: React.FC = () => {
 
     try {
       show();
-      console.log("🛑 Cancelando viaje con ID:", trip.id);
       const response = await startOrCancelrip(trip.id, "available");
-      console.log("✅ Respuesta cancelar viaje:", response);
 
       if (response.success) {
+        await stopBackgroundLocationUpdates();
         let updatedTrip = trip;
         updatedTrip.status = "canceled";
         saveTrip(updatedTrip);
@@ -334,12 +262,11 @@ const DriverOrderDetailScreen: React.FC = () => {
 
     for (const tripOrder of trip.orders) {
       const allDelivered = tripOrder?.deliveries.every(
-        (loc) => loc.status === "delivered"
+        (loc: any) => loc.status === "delivered"
       );
       if (!allDelivered) {
         showAlert({
-          message:
-            "Debes completar todas las entregas antes de finalizar el viaje.",
+          message: "Debes completar todas las entregas antes de finalizar el viaje.",
           type: "warning",
         });
         return;
@@ -348,12 +275,10 @@ const DriverOrderDetailScreen: React.FC = () => {
 
     try {
       show();
-      console.log("✅ Completando viaje con ID:", trip.id);
-
       const response = await startOrCancelrip(trip.id, "completed");
-      console.log("📦 Respuesta completar viaje:", response);
 
       if (response.success) {
+        await stopBackgroundLocationUpdates();
         let updatedTrip = trip;
         updatedTrip.status = "completed";
         saveTrip(updatedTrip);
@@ -384,8 +309,7 @@ const DriverOrderDetailScreen: React.FC = () => {
   };
 
   const handleWhatsapp = (phone: string) => {
-    // Asegúrate de que el número de teléfono esté en formato E.164 (con código de país)
-    const formattedPhone = phone.startsWith("+") ? phone : `+1${phone}`; // Ejemplo para República Dominicana
+    const formattedPhone = phone.startsWith("+") ? phone : `+1${phone}`;
     Linking.openURL(`whatsapp://send?phone=${formattedPhone}`);
   };
 
@@ -398,232 +322,48 @@ const DriverOrderDetailScreen: React.FC = () => {
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 120 }}
     >
-      <Text style={styles.title}>Detalle del viaje: {trip?.tripNumber}</Text>
+      <ScreenHeader
+        title="Detalle del viaje"
+        subtitle={`Viaje #${trip?.tripNumber || "N/A"}`}
+        showBack={true}
+      />
 
       <View style={styles.section}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ordenes</Text>
-          {trip?.orders?.map((order, index) => {
-            const isExpanded = expandedOrderIndex === index;
+        <Text style={styles.sectionTitle}>Ordenes</Text>
+        {trip?.orders?.map((order: any, index: number) => (
+          <DriverTripOrderCard
+            key={index}
+            order={order}
+            isExpanded={expandedOrderIndex === index}
+            onToggle={() => toggleOrder(index)}
+            onCall={handleCallClient}
+            onWhatsapp={handleWhatsapp}
+            tripStatus={trip?.status}
+            onOpenDeliveryModal={handleOpenDeliveryModal}
+          />
+        ))}
 
-            return (
-              <View
-                key={index}
-                style={[
-                  styles.value,
-                  {
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#ccc",
-                    paddingBottom: 10,
-                  },
-                ]}
-              >
-                <TouchableOpacity
-                  onPress={() => toggleOrder(index)}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={styles.label}>
-                    {`${ORDER_PREFIX.ORD}${order?.orderNumber}`}
-                  </Text>
-                  <Text style={{ fontSize: 18 }}>{isExpanded ? "▲" : "▼"}</Text>
-                </TouchableOpacity>
-
-                {isExpanded && (
-                  <>
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Datos del cliente</Text>
-                      <Text style={styles.value}>
-                        👤 {order.userNames} {order.userLastNames}
-                      </Text>
-                      <Text style={styles.value}>📞 {order.userPhone}</Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.callButton}
-                      onPress={() => handleCallClient(order.userPhone)}
-                    >
-                      <Text style={styles.actionText}>
-                        📞 Llamar al cliente
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.callButton, styles.whatsappButton]}
-                      onPress={() => handleWhatsapp(order.userPhone)}
-                    >
-                      <Text style={styles.actionText}>💬 Chat en WhatsApp</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Productos</Text>
-                      {order.items.map((item, index) => (
-                        <View key={index} style={styles.productCard}>
-                          <Text style={styles.productTitle}>
-                            🛒 Producto {index + 1}
-                          </Text>
-                          <Text style={styles.productLine}>
-                            📄 <Text style={styles.bold}>Descripción:</Text>{" "}
-                            {item.name}
-                          </Text>
-                          <Text style={styles.productLine}>
-                            📦 <Text style={styles.bold}>Cantidad:</Text>{" "}
-                            {item.quantity} {item.unit}
-                          </Text>
-                          <Text style={styles.productLine}>
-                            💰 <Text style={styles.bold}>Monto total:</Text>{" "}
-                            {formatRD(item.subtotal)}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>
-                        Direcciones de entrega
-                      </Text>
-                      {order?.deliveries?.map((delivery, index) => (
-                        <View
-                          key={delivery.productId}
-                          style={styles.deliveryCard}
-                        >
-                          <Text style={styles.value}>
-                            📍 {delivery.address?.description}
-                            {/* Se agregó el campo adicional de forma condicional */}
-                            {delivery.address?.additionalInfo &&
-                            delivery.address.additionalInfo
-                              ? `, ${delivery.address.additionalInfo}`
-                              : ""}
-                          </Text>
-                          <Text style={styles.value}>
-                            🪣{" "}
-                            {
-                              order?.items?.find(
-                                (o) => o.productId === delivery.productId
-                              )?.name
-                            }{" "}
-                            - {delivery.quantity} {delivery.unit}
-                          </Text>
-                          <CheckRender
-                            allowed={delivery.status === "delivered"}
-                          >
-                            <Text style={[styles.delivered]}>✅ Entregado</Text>
-                          </CheckRender>
-                          <CheckRender
-                            allowed={
-                              delivery.status !== "delivered" &&
-                              trip.status === "started"
-                            }
-                          >
-                            <TouchableOpacity
-                              style={styles.deliverButton}
-                              onPress={() =>
-                                handleOpenDeliveryModal(order?.id, index)
-                              }
-                            >
-                              <Text style={styles.deliverButtonText}>
-                                Marcar como entregado
-                              </Text>
-                            </TouchableOpacity>
-                          </CheckRender>
-                        </View>
-                      ))}
-                    </View>
-                  </>
-                )}
-              </View>
-            );
-          })}
+        <View style={{ marginTop: 10 }}>
+          <InfoRow
+            icon="chatbox-ellipses-outline"
+            label="Comentarios"
+            value={trip?.comments || "Ninguno"}
+          />
         </View>
-        <Text style={styles.value}>
-          Comentarios: {trip?.comments || "Ninguno"}
-        </Text>
       </View>
 
-      <View style={styles.actions}>
-        <CheckRender allowed={trip?.status === "accepted"}>
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={handleStartTrip}
-          >
-            <Text style={styles.actionText}>Iniciar viaje</Text>
-          </TouchableOpacity>
-        </CheckRender>
+      <TripActionButtons
+        tripStatus={trip?.status || ""}
+        onStartTrip={handleStartTrip}
+        onCompleteOrder={handleCompleteOrder}
+        onCancel={() => setIsCancelModalVisible(true)}
+      />
 
-        <CheckRender allowed={trip?.status === "started"}>
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={handleCompleteOrder}
-          >
-            <Text style={styles.actionText}>Completar viaje</Text>
-          </TouchableOpacity>
-        </CheckRender>
-
-        <CheckRender
-          allowed={trip?.status !== "completed" && trip?.status !== "canceled"}
-        >
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-            <Text style={styles.actionText}>Cancelar viaje</Text>
-          </TouchableOpacity>
-        </CheckRender>
-      </View>
-
-      {location &&
-        (trip?.status === "accepted" || trip?.status === "started") && (
-          <View style={{ height: 300, marginBottom: 20, paddingTop: 20 }}>
-            <MapView
-              style={{ flex: 1, borderRadius: 10 }}
-              initialRegion={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              }}
-            >
-              <Marker.Animated
-                coordinate={location}
-                title="Tu ubicación"
-                description="Ubicación actual"
-              >
-                <Image
-                  source={require("@/assets/images/camion.png")}
-                  style={{ width: 50, height: 50 }}
-                  resizeMode="contain"
-                />
-              </Marker.Animated>
-
-              {trip?.orders?.map((order) =>
-                order?.deliveries?.map((delivery, index) => {
-                  if (
-                    delivery?.address?.latitude &&
-                    delivery?.address?.longitude
-                  ) {
-                    return (
-                      <Marker
-                        key={`${order.id}-${index}`}
-                        coordinate={{
-                          latitude: delivery.address.latitude,
-                          longitude: delivery.address.longitude,
-                        }}
-                        title={`👤: ${order.userNames} ${order.userLastNames}`}
-                        description={`${delivery.address.description}${
-                          delivery.address.additionalInfo &&
-                          delivery.address.additionalInfo
-                            ? `, ${delivery.address.additionalInfo}`
-                            : ""
-                        }`}
-                        pinColor="green"
-                      />
-                    );
-                  }
-                  return null;
-                })
-              )}
-            </MapView>
-          </View>
-        )}
+      <DriverTripMap
+        location={location}
+        orders={trip?.orders}
+        tripStatus={trip?.status || ""}
+      />
 
       <ConfirmationModal
         visible={isCancelModalVisible}
@@ -635,61 +375,15 @@ const DriverOrderDetailScreen: React.FC = () => {
         cancelText="No, volver"
       />
 
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <ConfirmationModal
         visible={isDeliveryModalVisible}
-        onRequestClose={() => setIsDeliveryModalVisible(false)}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalTitle}>Marcar como entregado</Text>
-            <Text style={styles.modalSubTitle}>
-              Sube una foto como prueba de entrega y añade un comentario.
-            </Text>
-
-            {deliveryImage && (
-              <Image
-                source={{ uri: deliveryImage }}
-                style={styles.deliveryImage}
-              />
-            )}
-
-            <View style={styles.photoActions}>
-              <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
-                <Text style={styles.photoButtonText}>Tomar foto</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
-                <Text style={styles.photoButtonText}>Galería</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              placeholder="Añadir comentario..."
-              placeholderTextColor="#999"
-              style={styles.commentInput}
-              multiline={true}
-              value={deliveryComment}
-              onChangeText={setDeliveryComment}
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.sendButton]}
-                onPress={handleSendDelivery}
-              >
-                <Text style={styles.modalButtonText}>Enviar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.closeButton]}
-                onPress={() => setIsDeliveryModalVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        title="Confirmar Entrega"
+        message="¿Confirmas que este pedido fue entregado en el destino?"
+        onConfirm={handleSendDelivery}
+        onCancel={() => setIsDeliveryModalVisible(false)}
+        confirmText="Sí, entregar"
+        cancelText="Cancelar"
+      />
     </ScrollView>
   );
 };
@@ -699,14 +393,9 @@ export default DriverOrderDetailScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff8f3",
+    backgroundColor: Palette.background,
     paddingTop: 40,
     paddingHorizontal: 16,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 16,
   },
   section: {
     marginBottom: 24,
@@ -716,197 +405,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 8,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  value: {
-    fontSize: 15,
-    color: "#333",
-    marginBottom: 2,
-  },
-  deliveryCard: {
-    backgroundColor: "#fff",
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  deliverButton: {
-    backgroundColor: "#FF7F32",
-    marginTop: 8,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: "center",
-  },
-  deliverButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  delivered: {
-    marginTop: 8,
-    color: "#4CAF50",
-    fontWeight: "bold",
-  },
-  actions: {
-    marginTop: 30,
-    gap: 12,
-  },
-  startButton: {
-    backgroundColor: "#2196F3",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  callButton: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  whatsappButton: {
-    backgroundColor: "#25D366", // Color verde de WhatsApp
-    marginTop: 8,
-  },
-  cancelButton: {
-    backgroundColor: "#F44336",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  completeButton: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  actionText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  productCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
-  productTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#333",
-  },
-  productLine: {
-    fontSize: 15,
-    color: "#444",
-    marginBottom: 4,
-  },
-  bold: {
-    fontWeight: "600",
-    color: "#222",
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalView: {
-    margin: 20,
-    width: "90%",
-    backgroundColor: "white",
-    borderRadius: 20,
-    padding: 35,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  modalSubTitle: {
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: "center",
-    color: "#666",
-  },
-  deliveryImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 10,
-    marginBottom: 20,
-    resizeMode: "cover",
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  photoActions: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    marginBottom: 20,
-  },
-  photoButton: {
-    backgroundColor: "#A04A0E",
-    padding: 10,
-    borderRadius: 8,
-    width: "45%",
-    alignItems: "center",
-  },
-  photoButtonText: {
-    color: "white",
-    fontWeight: "bold",
-  },
-  commentInput: {
-    width: "100%",
-    minHeight: 100,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    marginBottom: 20,
-    textAlignVertical: "top",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  modalButton: {
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    width: "48%",
-  },
-  sendButton: {
-    backgroundColor: "#4CAF50",
-  },
-  closeButton: {
-    backgroundColor: "#F44336",
-  },
-  modalButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
+    color: Palette.primaryDark,
   },
 });

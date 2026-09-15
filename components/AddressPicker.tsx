@@ -303,7 +303,7 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
         <View style={styles.activeBadge}>
           <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
           <Text style={styles.activeBadgeText} numberOfLines={1}>
-            Dirección activa: "{query}"
+            Dirección activa: {query}
           </Text>
         </View>
       )}
