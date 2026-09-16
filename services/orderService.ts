@@ -9,8 +9,8 @@ export const getOrderTracking = async (orderId: string) => {
 };
 
 export const getOrders = async () => {
-  const response = await api.get("/orders");
-  return response.data;
+  const result = await safeRequest(() => api.get("/orders"));
+  return result.success ? result.data : { success: false, orders: [] };
 };
 
 export const updateOrderStatus = async (
@@ -18,18 +18,24 @@ export const updateOrderStatus = async (
   status: string,
   reason?: string
 ) => {
-  const response = await api.put(`/orders/${id}/status`, { status, reason });
-  return response.data;
+  const result = await safeRequest(() => api.put(`/orders/${id}/status`, { status, reason }));
+  return result.success ? result.data : { success: false, message: result.message };
 };
 
 export const getMyOrders = async (params?: { search?: string; status?: string }) => {
-  const response = await protectedApi.get("/orders/my", { params });
-  return response.data;
+  const result = await safeRequest(() => protectedApi.get("/orders/my", { params }));
+  if (result.success && result.data) {
+    return result.data;
+  }
+  return { success: false, orders: [], message: result.message };
 };
 
 export const getOrderDetail = async (id: string) => {
-  const response = await protectedApi.get(`/orders/${id}`);
-  return response.data;
+  const result = await safeRequest(() => protectedApi.get(`/orders/${id}`));
+  if (result.success && result.data) {
+    return result.data;
+  }
+  return { success: false, order: null, message: result.message };
 };
 
 export const createOrder = async (order: {
@@ -51,26 +57,35 @@ export const createOrder = async (order: {
   comments?: string;
   receiptImage?: string;
 }) => {
-  const response = await protectedApi.post("/orders", order);
-  return response.data;
+  const result = await safeRequest(() => protectedApi.post("/orders", order));
+  return result.success ? result.data : { success: false, message: result.message };
 };
 
 export const orderDelivered = async (id: string, index: number) => {
-  const response = await protectedApi.patch(`orders/${id}/deliveries/${index}`);
-  return response.data;
+  const result = await safeRequest(() => protectedApi.patch(`orders/${id}/deliveries/${index}`));
+  return result.success ? result.data : { success: false, message: result.message };
 };
 
 export const getAllOrders = async () => {
-  const response = await protectedApi.get("/orders");
-  return response.data;
+  const result = await safeRequest(() => protectedApi.get("/orders"));
+  if (result.success && result.data) {
+    return result.data;
+  }
+  return { success: false, orders: [], message: result.message };
 };
 
 export const getOrdersWithStatus = async (status: string) => {
-  const response = await protectedApi.get("/orders", {
-    params: { status },
-  });
-  return response.data;
+  const result = await safeRequest(() =>
+    protectedApi.get("/orders", {
+      params: { status },
+    })
+  );
+  if (result.success && result.data) {
+    return result.data;
+  }
+  return { success: false, orders: [], message: result.message };
 };
+
 export const approveOrder = async (id: string) => {
   const response = await protectedApi.patch(`/orders/${id}/status`, {
     status: "approved",
@@ -247,3 +262,22 @@ export async function syncPendingDeliveries(): Promise<{
   return { total: pending.length, synced, failed };
 }
 
+export const updateOrderDeliveries = async (
+  id: string,
+  deliveryType: string,
+  deliveries: any[]
+) => {
+  const result = await safeRequest(() =>
+    protectedApi.put(`/orders/${id}/deliveries`, {
+      deliveryType,
+      deliveries,
+    })
+  );
+  if (result.success && result.data) {
+    return result.data;
+  }
+  return {
+    success: false,
+    message: result.message || "Error al guardar las entregas.",
+  };
+};

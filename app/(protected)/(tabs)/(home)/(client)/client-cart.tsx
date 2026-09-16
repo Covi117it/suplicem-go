@@ -1,11 +1,12 @@
 import { ORDER_PREFIX } from "@/constants/UserConstants";
-import { BANK_ACCOUNTS } from "@/constants/cartConstants";
+import { BANK_ACCOUNTS, BankAccount } from "@/constants/cartConstants";
 import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
 import { AuthContext } from "@/context/authContext";
 import { CartContext } from "@/context/cartContext";
 import { useLoading } from "@/context/loadingContext";
 import { createOrder } from "@/services/orderService";
+import { getBankAccounts } from "@/services/configService";
 import { formatRD } from "@/utils/currencyUtils";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -27,6 +28,45 @@ import CartDeliverySection, { DeliveryItem } from "@/components/cart/CartDeliver
 import CartItemCard from "@/components/cart/CartItemCard";
 import CartPaymentSection from "@/components/cart/CartPaymentSection";
 
+const DEFAULT_BANK_ACCOUNTS: BankAccount[] = [
+  {
+    id: "banreservas",
+    bankName: "Banreservas",
+    accountNumber: "960-123456-7",
+    accountType: "Cuenta Corriente",
+    rnc: "131-45678-9",
+    currency: "DOP (Pesos Dominicanos)",
+    holder: "SUPLICEM S.R.L.",
+  },
+  {
+    id: "bhd",
+    bankName: "Banco BHD",
+    accountNumber: "240-987654-3",
+    accountType: "Cuenta Corriente",
+    rnc: "131-45678-9",
+    currency: "DOP (Pesos Dominicanos)",
+    holder: "SUPLICEM S.R.L.",
+  },
+  {
+    id: "popular",
+    bankName: "Banco Popular",
+    accountNumber: "780-451239-1",
+    accountType: "Cuenta Corriente",
+    rnc: "131-45678-9",
+    currency: "DOP (Pesos Dominicanos)",
+    holder: "SUPLICEM S.R.L.",
+  },
+  {
+    id: "santacruz",
+    bankName: "Banco Santa Cruz",
+    accountNumber: "550-882314-9",
+    accountType: "Cuenta de Ahorros",
+    rnc: "131-45678-9",
+    currency: "DOP (Pesos Dominicanos)",
+    holder: "SUPLICEM S.R.L.",
+  },
+];
+
 const CartScreen: React.FC = () => {
   const {
     cart,
@@ -46,10 +86,33 @@ const CartScreen: React.FC = () => {
 
   // Opciones de pago (Transferencia / Crédito)
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "credit">("transfer");
-  const [selectedBankId, setSelectedBankId] = useState("banreservas");
+  const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>(DEFAULT_BANK_ACCOUNTS);
+  const [selectedBankId, setSelectedBankId] = useState("");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [creditNote, setCreditNote] = useState<string>("");
   const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState("");
+
+  const fetchAccounts = useCallback(async () => {
+    try {
+      const response = await getBankAccounts();
+      if (response.success && response.bankAccounts && response.bankAccounts.length > 0) {
+        const mapped: BankAccount[] = response.bankAccounts.map((b) => ({
+          ...b,
+          currency: b.currency || "DOP (Pesos Dominicanos)",
+          holder: b.holder || "SUPLICEM S.R.L.",
+        }));
+        setBankAccountsList(mapped);
+        setSelectedBankId((prevId) => {
+          if (prevId && mapped.some((b) => b.id === prevId)) {
+            return prevId;
+          }
+          return mapped[0].id;
+        });
+      }
+    } catch (e) {
+      console.log("Error al obtener cuentas bancarias:", e);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,14 +120,14 @@ const CartScreen: React.FC = () => {
       setSelectedDeliveryAddress("");
       setReference("");
       setPaymentMethod("transfer");
-      setSelectedBankId("banreservas");
       setReceiptImage(null);
       setCreditNote("");
-    }, [])
+      fetchAccounts();
+    }, [fetchAccounts])
   );
 
-  const selectedBank =
-    BANK_ACCOUNTS.find((b) => b.id === selectedBankId) || BANK_ACCOUNTS[0];
+  const activeBankList = bankAccountsList.length > 0 ? bankAccountsList : DEFAULT_BANK_ACCOUNTS;
+  const selectedBank = activeBankList.find((b) => b.id === selectedBankId) || activeBankList[0];
 
   const handleSelectDeliveryAddress = (addressDesc: string) => {
     setSelectedDeliveryAddress(addressDesc);

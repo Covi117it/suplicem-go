@@ -4,8 +4,44 @@ import api from "./api";
 import { safeRequest } from "./apiSafe";
 import protectedApi from "./protectedApi";
 
-export const createUserAccount = async (data: RegisterFormData) => {
-  return await safeRequest(() => api.post("/users", data));
+export const createUserAccount = async (data: any) => {
+  if (data instanceof FormData) {
+    return await safeRequest(() => api.post("/users", data));
+  }
+
+  const formData = new FormData();
+
+  const imageUri = data.identificationImageUri || data.identificationImage || data.idDocument;
+  if (imageUri && typeof imageUri === "string" && !imageUri.startsWith("data:")) {
+    const filename = imageUri.split("/").pop() || "cedula.jpg";
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : "image/jpeg";
+
+    formData.append("identificationImage", {
+      uri: imageUri,
+      name: filename,
+      type,
+    } as any);
+  }
+
+  Object.keys(data).forEach((key) => {
+    if (
+      key !== "identificationImageUri" &&
+      key !== "identificationImage" &&
+      key !== "idDocument"
+    ) {
+      const val = data[key];
+      if (val !== undefined && val !== null) {
+        if (typeof val === "object") {
+          formData.append(key, JSON.stringify(val));
+        } else {
+          formData.append(key, String(val));
+        }
+      }
+    }
+  });
+
+  return await safeRequest(() => api.post("/users", formData));
 };
 
 export const getUsers = async () => {

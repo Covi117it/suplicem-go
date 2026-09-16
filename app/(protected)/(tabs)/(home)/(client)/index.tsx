@@ -5,11 +5,10 @@ import { PromoBannerCarousel } from "@/components/home/PromoBannerCarousel";
 import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
 import { CartContext } from "@/context/cartContext";
-import { useMountEffect } from "@/hooks/lifeCicle";
 import { getProducts } from "@/services/productService";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -24,41 +23,52 @@ import {
 const SKELETON_ITEMS = ["sk-1", "sk-2", "sk-3", "sk-4"];
 
 const ClientHomeScreen: React.FC = () => {
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedProductForQty, setSelectedProductForQty] = useState<Product | null>(null);
-  const [quantity, setQuantity] = useState("1");
+  const [quantity, setQuantity] = useState("100");
 
+  const latestRequestIdRef = useRef(0);
   const router = useRouter();
   const { addToCart, cart, updateProductInCart } = useContext(CartContext);
   const { showAlert } = useAlert();
 
-  const fetchProducts = async (isPullToRefresh = false) => {
-    try {
-      if (isPullToRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      const productsResponse = await getProducts();
-      setProducts(productsResponse?.products || []);
-    } catch (error) {
-      console.error("Error al cargar productos:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  const fetchProductsFromBackend = React.useCallback(async (query: string, isPullToRefresh = false) => {
+    const requestId = ++latestRequestIdRef.current;
+    if (isPullToRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  };
 
-  useMountEffect(() => {
-    fetchProducts();
-  });
+    try {
+      const response = await getProducts(query);
+      if (requestId !== latestRequestIdRef.current) return;
+      if (response && response.products && Array.isArray(response.products)) {
+        setProducts(response.products);
+      } else {
+        setProducts([]);
+      }
+    } catch (error) {
+      console.error("Error al buscar productos:", error);
+    } finally {
+      if (requestId === latestRequestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, []);
 
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Debounce de 300ms al cambiar searchInput
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProductsFromBackend(searchInput);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput, fetchProductsFromBackend]);
 
   const openQuantityModal = (product: Product) => {
     setSelectedProductForQty(product);
@@ -133,8 +143,8 @@ const ClientHomeScreen: React.FC = () => {
           placeholder="Buscar producto de construcción..."
           placeholderTextColor="#999"
           style={styles.searchInput}
-          value={search}
-          onChangeText={setSearch}
+          value={searchInput}
+          onChangeText={setSearchInput}
         />
 
         <TouchableOpacity style={styles.cartIcon} onPress={goToCart}>
@@ -154,7 +164,7 @@ const ClientHomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={loading ? (SKELETON_ITEMS as any) : filteredProducts}
+        data={loading ? (SKELETON_ITEMS as any) : products}
         keyExtractor={(item) => (loading ? item : item.id)}
         renderItem={({ item }) => (
           <View style={styles.itemWrapper}>
@@ -176,7 +186,9 @@ const ClientHomeScreen: React.FC = () => {
               <Ionicons name="search-outline" size={46} color="#999" />
               <Text style={styles.emptyTitle}>No se encontraron productos</Text>
               <Text style={styles.emptySubtitle}>
-                {`No hay resultados para "${search}". Intenta con otro término.`}
+                {searchInput
+                  ? `No hay resultados para "${searchInput}". Intenta con otro término.`
+                  : "No se encontraron productos disponibles."}
               </Text>
             </View>
           ) : null
@@ -186,14 +198,13 @@ const ClientHomeScreen: React.FC = () => {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => fetchProducts(true)}
+            onRefresh={() => fetchProductsFromBackend(searchInput, true)}
             colors={[Palette.primary]}
             tintColor={Palette.primary}
           />
         }
       />
 
-      {/* Modal de Selección de Cantidad */}
       <ProductQuantityModal
         product={selectedProductForQty}
         quantity={quantity}
