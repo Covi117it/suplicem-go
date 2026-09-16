@@ -10,7 +10,7 @@ export const getBaseUrl = () => {
   if (host && !host.includes("ngrok") && !host.includes("exp.direct")) {
     return `http://${host}:3000/api`;
   }
-  return "http://localhost:3000/api";
+  return "http://10.0.0.10:3000/api";
 };
 
 const api = axios.create({
