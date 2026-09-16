@@ -5,7 +5,7 @@ import { sendDriverLocation } from "./tripsService";
 export const DRIVER_LOCATION_TASK_NAME = "DRIVER_BACKGROUND_LOCATION_TASK";
 
 
-TaskManager.defineTask(DRIVER_LOCATION_TASK_NAME, async ({ data, error }) => {
+TaskManager.defineTask(DRIVER_LOCATION_TASK_NAME, async ({ data, error }: any) => {
   if (error) {
     console.error("❌ Error en tarea de ubicación en segundo plano:", error.message);
     return;

@@ -58,16 +58,6 @@ const LoginScreen = () => {
     const responseLogin = await login(email, password);
 
     if (responseLogin?.data?.success) {
-      if (!responseLogin?.data?.emailVerified) {
-        Alert.alert("¡Hola!", "");
-        showAlert({
-          message:
-            "Aún no has verificado tu cuenta. Por favor, revisa tu correo electrónico y haz clic en el enlace de verificación para activar tu cuenta.",
-          type: "info",
-        });
-        hide();
-        return;
-      }
       const responseUser = await getCurrentUser(responseLogin?.data?.idToken);
 
       if (responseUser?.data?.success) {
@@ -78,7 +68,7 @@ const LoginScreen = () => {
           const newSession = {
             token: responseLogin?.data?.idToken,
             refreshToken: responseLogin?.data?.refreshToken,
-            expiresAt: now + parseInt(responseLogin?.data?.expiresIn) * 1000,
+            expiresAt: now + parseInt(responseLogin?.data?.expiresIn || "3600") * 1000,
           };
           await saveAuthSession(newSession);
           authContext.logIn(user);
@@ -91,6 +81,17 @@ const LoginScreen = () => {
           Alert.alert("¡Hola!", "");
           showAlert({
             message: "Cuenta suspendida temporalmente.",
+            type: "info",
+          });
+          hide();
+          return;
+        }
+
+        if (!responseLogin?.data?.emailVerified) {
+          Alert.alert("¡Hola!", "");
+          showAlert({
+            message:
+              "Aún no has verificado tu cuenta. Por favor, revisa tu correo electrónico y haz clic en el enlace de verificación para activar tu cuenta.",
             type: "info",
           });
           hide();

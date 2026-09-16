@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Image,
@@ -25,7 +25,11 @@ import {
   View,
 } from "react-native";
 
+import { AuthContext } from "@/context/authContext";
+import { saveAuthSession } from "@/utils/authStorage";
+
 export default function RegisterScreen() {
+  const authContext = useContext(AuthContext);
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
   const router = useRouter();
@@ -64,14 +68,10 @@ export default function RegisterScreen() {
         const manipResult = await ImageManipulator.manipulateAsync(
           asset.uri,
           [{ resize: { width: 800 } }],
-          { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-        const imageString = manipResult.base64
-          ? `data:image/jpeg;base64,${manipResult.base64}`
-          : asset.uri;
-
-        setIdentificationImage(imageString);
+        setIdentificationImage(manipResult.uri);
         showAlert({
           message: "¡Foto de la cédula/identificación adjuntada correctamente!",
           type: "success",
@@ -155,7 +155,19 @@ export default function RegisterScreen() {
     try {
       const responseRegister = await createUserAccount(payload);
 
-      if (responseRegister?.success) {
+      if (responseRegister?.success && responseRegister?.data?.success) {
+        const regData = responseRegister.data;
+        if (regData.idToken && regData.user) {
+          const now = Date.now();
+          const newSession = {
+            token: regData.idToken,
+            refreshToken: regData.refreshToken,
+            expiresAt: now + parseInt(regData.expiresIn || "3600") * 1000,
+          };
+          await saveAuthSession(newSession);
+          authContext.logIn(regData.user);
+        }
+
         reset();
         setIdentificationImage(null);
         showAlert({

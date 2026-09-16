@@ -53,12 +53,43 @@ export const createTrip = async (
   return response.data;
 };
 
+export const createTripWithOrders = async (data: {
+  tripNumber: string;
+  orderIds: string[];
+  driverId?: string;
+  totalTons: number;
+  comments?: string;
+  deliveries?: any[];
+}) => {
+  const result = await safeRequest(() =>
+    protectedApi.post("/trips/create-with-orders", data)
+  );
+  if (result.success && result.data) {
+    return result.data;
+  }
+  return {
+    success: false,
+    message: result.message || "Error al crear el viaje.",
+  };
+};
+
+export const updateTripStatus = async (tripId: string, status: string) => {
+  const result = await safeRequest(() =>
+    protectedApi.patch(`/trips/${tripId}/status`, {
+      status,
+    })
+  );
+  if (result.success) {
+    return result.data;
+  }
+  return {
+    success: false,
+    message: result.message,
+  };
+};
+
 export const startOrCancelrip = async (tripId: string, status: string) => {
-  const response = await protectedApi.post("/trips/status/update", {
-    tripId,
-    status,
-  });
-  return response.data;
+  return await updateTripStatus(tripId, status);
 };
 
 export const sendDriverLocation = async (lat: number, lng: number) => {

@@ -7,6 +7,7 @@ import {
   approveOrder as approveOrderService,
   rejectedOrder,
   getOrderDetail,
+  updateOrderDeliveries,
 } from "@/services/orderService";
 import { getUsers } from "@/services/userService";
 import { Address } from "@/types/users";
@@ -304,6 +305,8 @@ const AdminOrderDetailScreen: React.FC = () => {
 
     setEditedDeliveries(newEditedDeliveries);
   };
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleSave = async () => {
     const hasEmptyProduct = editedDeliveries.some(
       (delivery) => !delivery.productId || delivery.productId.length === 0
@@ -318,37 +321,55 @@ const AdminOrderDetailScreen: React.FC = () => {
       return;
     }
 
+    const targetId = currentOrder?.id || selectedOrder?.id;
+    if (!targetId) return;
+
+    if (isSaving) return;
+
     show();
+    setIsSaving(true);
 
     try {
-      // Aquí iría tu llamada API para guardar los cambios en el servidor
-      // Por ahora, solo es una simulación
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const cleanDeliveries = editedDeliveries.map(
+        ({ availableAddresses, ...rest }) => rest
+      );
 
-      // Actualiza la orden en el contexto con los datos editados
-      if (selectedOrder) {
-        updateOrder(selectedOrder.id, {
+      const response = await updateOrderDeliveries(
+        targetId,
+        editedDeliveryType,
+        cleanDeliveries
+      );
+
+      if (response?.success) {
+        updateOrder(targetId, {
           deliveryType: editedDeliveryType,
-          deliveries: editedDeliveries.map(
-            ({ availableAddresses, ...rest }) => rest
-          ),
+          deliveries: cleanDeliveries,
+        });
+
+        if (response.order) {
+          setFreshOrder(response.order);
+        }
+
+        showAlert({
+          message: response.message || "Cambios guardados correctamente.",
+          type: "success",
+        });
+
+        setIsEditing(false);
+      } else {
+        showAlert({
+          message: response?.message || "Ocurrió un error al guardar los cambios.",
+          type: "error",
         });
       }
-
+    } catch (error: any) {
+      console.error("Error al guardar entregas en el servidor:", error);
       showAlert({
-        message: "Cambios guardados correctamente.",
-        type: "success",
-      });
-
-      // No reiniciamos el estado de editedDeliveries, solo salimos del modo edición.
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error en la simulación del servicio:", error);
-      showAlert({
-        message: "Ocurrió un error al guardar los cambios.",
+        message: error.message || "Ocurrió un error al guardar los cambios.",
         type: "error",
       });
     } finally {
+      setIsSaving(false);
       hide();
     }
   };
@@ -588,21 +609,38 @@ const AdminOrderDetailScreen: React.FC = () => {
     productId: string,
     currentDeliveryId: string
   ) => {
+    const orderData = currentOrder || selectedOrder;
+    if (!orderData) return 0;
+
     const totalOrderedQuantity =
-      selectedOrder.items.find((item) => item.productId === productId)
+      orderData.items?.find((item: any) => item.productId === productId)
         ?.quantity || 0;
+
+    const deliveredQuantity =
+      orderData.deliveries?.reduce((sum: number, del: any) => {
+        if (
+          del.productId === productId &&
+          (del.status === "delivered" || del.delivered === true)
+        ) {
+          return sum + (Number(del.quantity) || 0);
+        }
+        return sum;
+      }, 0) || 0;
 
     const allocatedQuantity = editedDeliveries.reduce((sum, delivery) => {
       if (
         delivery.productId === productId &&
         delivery.id !== currentDeliveryId
       ) {
-        return sum + delivery.quantity;
+        return sum + (Number(delivery.quantity) || 0);
       }
       return sum;
     }, 0);
 
-    return Math.max(0, totalOrderedQuantity - allocatedQuantity);
+    return Math.max(
+      0,
+      totalOrderedQuantity - deliveredQuantity - allocatedQuantity
+    );
   };
 
   return (
@@ -1004,8 +1042,14 @@ const AdminOrderDetailScreen: React.FC = () => {
 
         {isEditing ? (
           <View style={styles.buttonsContainer}>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.buttonText}>Guardar Cambios</Text>
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && { opacity: 0.6 }]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              <Text style={styles.buttonText}>
+                {isSaving ? "Guardando..." : "Guardar Cambios"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.cancelButton}

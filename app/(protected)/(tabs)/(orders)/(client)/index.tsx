@@ -35,7 +35,11 @@ const ClientOrdersMainScreen: React.FC = () => {
     try {
       if (isPullToRefresh) setRefreshing(true);
       const response = await getMyOrders();
-      setOrders(response.orders || []);
+      if (response && response.orders && Array.isArray(response.orders)) {
+        setOrders(response.orders);
+      } else {
+        setOrders([]);
+      }
     } catch (error) {
       console.error("Error fetching orders:", error);
       showAlert({
