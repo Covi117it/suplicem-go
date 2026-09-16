@@ -5,12 +5,14 @@ import OrderFilterChips, { OrderFilterType } from "@/components/orders/OrderFilt
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
+import { CartContext, Product } from "@/context/cartContext";
 import { useOrders } from "@/context/orderContext";
 import { getMyOrders } from "@/services/orderService";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -117,11 +119,55 @@ const ClientOrdersMainScreen: React.FC = () => {
     });
   }, [orders, activeFilter, search]);
 
+  const { cart, setCartItems, addToCart } = useContext(CartContext);
+
   const goToOrderDetail = (id: string) => {
     router.push({
       pathname: "/client-order-detail",
       params: { orderId: id },
     });
+  };
+
+  const handleQuickReorder = (order: any) => {
+    if (!order?.items || order.items.length === 0) return;
+
+    const formattedProducts: Product[] = order.items.map((item: any) => {
+      const qty = Number(item.quantity) || 100;
+      const unitPrice =
+        Number(item.unitPrice) ||
+        Number(item.price) ||
+        (item.subtotal ? Math.round(Number(item.subtotal) / qty) : 480);
+
+      return {
+        id: item.productId || item.id || `prod-${Math.random()}`,
+        name: item.name,
+        price: unitPrice,
+        fundas: qty,
+      };
+    });
+
+    const executeReorder = (replace: boolean) => {
+      if (replace) {
+        setCartItems(formattedProducts);
+      } else {
+        formattedProducts.forEach((p: Product) => addToCart(p));
+      }
+      router.push("/client-cart");
+    };
+
+    if (cart.length > 0) {
+      Alert.alert(
+        "Carrito con productos",
+        "Ya tienes materiales en tu carrito. ¿Deseas reemplazar el carrito con los productos de este pedido o sumarlos?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Sumar al carrito", onPress: () => executeReorder(false) },
+          { text: "Reemplazar carrito", style: "destructive", onPress: () => executeReorder(true) },
+        ]
+      );
+    } else {
+      executeReorder(true);
+    }
   };
 
   const renderEmptyState = () => {
@@ -286,6 +332,19 @@ const ClientOrdersMainScreen: React.FC = () => {
               <InfoRow icon="shield-checkmark-outline" label="Estado">
                 <StatusBadge status={order.status} size="small" />
               </InfoRow>
+
+              {order.status === "delivered" && (
+                <View style={styles.cardFooter}>
+                  <TouchableOpacity
+                    style={styles.quickReorderBtn}
+                    onPress={() => handleQuickReorder(order)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="repeat" size={14} color={Palette.primary} style={{ marginRight: 4 }} />
+                    <Text style={styles.quickReorderText}>Volver a pedir</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -384,6 +443,29 @@ const styles = StyleSheet.create({
   },
   clearSearchText: {
     fontSize: 13,
+    fontWeight: "600",
+    color: Palette.primary,
+  },
+  cardFooter: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  quickReorderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(227, 30, 36, 0.06)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(227, 30, 36, 0.25)",
+  },
+  quickReorderText: {
+    fontSize: 12,
     fontWeight: "600",
     color: Palette.primary,
   },
