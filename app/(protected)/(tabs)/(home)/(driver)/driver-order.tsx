@@ -15,8 +15,9 @@ import {
   orderDelivered,
   enqueueOfflineDelivery,
   syncPendingDeliveries,
+  markAsDelivered,
 } from "@/services/orderService";
-import { sendDriverLocation, startOrCancelrip } from "@/services/tripsService";
+import { sendDriverLocation, startOrCancelrip, updateTripStatus } from "@/services/tripsService";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import {
@@ -38,6 +39,7 @@ const DriverOrderDetailScreen: React.FC = () => {
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Estado para el modal de entrega
   const [isDeliveryModalVisible, setIsDeliveryModalVisible] = useState(false);
@@ -102,10 +104,8 @@ const DriverOrderDetailScreen: React.FC = () => {
       show();
       const response = await startOrCancelrip(trip.id, "started");
 
-        if (response.success) {
-        await stopBackgroundLocationUpdates();
-        let updatedTrip = trip;
-        updatedTrip.status = "canceled";
+      if (response.success) {
+        let updatedTrip = { ...trip, status: "started" };
         saveTrip(updatedTrip);
         showAlert({
           message: "Viaje iniciado. Puedes comenzar la ruta.",
@@ -134,7 +134,7 @@ const DriverOrderDetailScreen: React.FC = () => {
     deliveryIndex: number,
     newStatus: string
   ): any {
-    const updatedTrip = tripData;
+    const updatedTrip = { ...tripData };
     const order = updatedTrip.orders.find((o: any) => o.id === orderId);
 
     if (
@@ -226,8 +226,7 @@ const DriverOrderDetailScreen: React.FC = () => {
 
       if (response.success) {
         await stopBackgroundLocationUpdates();
-        let updatedTrip = trip;
-        updatedTrip.status = "canceled";
+        let updatedTrip = { ...trip, status: "canceled" };
         saveTrip(updatedTrip);
         showAlert({
           message: "El viaje se ha cancelado correctamente.",
@@ -260,46 +259,53 @@ const DriverOrderDetailScreen: React.FC = () => {
       return;
     }
 
-    for (const tripOrder of trip.orders) {
-      const allDelivered = tripOrder?.deliveries.every(
-        (loc: any) => loc.status === "delivered"
-      );
-      if (!allDelivered) {
-        showAlert({
-          message: "Debes completar todas las entregas antes de finalizar el viaje.",
-          type: "warning",
-        });
-        return;
+    if (isSubmitting) return;
+
+    if (trip.orders && Array.isArray(trip.orders)) {
+      for (const tripOrder of trip.orders) {
+        if (tripOrder?.deliveries && Array.isArray(tripOrder.deliveries)) {
+          const allDelivered = tripOrder.deliveries.every(
+            (loc: any) => loc.status === "delivered"
+          );
+          if (!allDelivered) {
+            showAlert({
+              message: "Debes completar todas las entregas antes de finalizar el viaje.",
+              type: "warning",
+            });
+            return;
+          }
+        }
       }
     }
 
     try {
+      setIsSubmitting(true);
       show();
-      const response = await startOrCancelrip(trip.id, "completed");
+      const response = await updateTripStatus(trip.id, "completed");
 
       if (response.success) {
         await stopBackgroundLocationUpdates();
-        let updatedTrip = trip;
-        updatedTrip.status = "completed";
+        let updatedTrip = { ...trip, status: "completed" };
         saveTrip(updatedTrip);
         showAlert({
-          message: "Viaje completado. Gracias por tu trabajo.",
+          message: response.message || "Viaje completado. Gracias por tu trabajo.",
           type: "success",
         });
         router.back();
       } else {
         showAlert({
-          message: "Error: No se pudo completar el viaje.",
-          type: "error",
+          message: response.message || "Error: No se pudo completar el viaje.",
+          type: "warning",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error al completar viaje:", error);
       showAlert({
-        message: "Error: Ocurrió un error al completar el viaje.",
+        message: error.message || "Error: Ocurrió un error al completar el viaje.",
         type: "error",
       });
     } finally {
+      setIsSubmitting(false);
       hide();
     }
   };

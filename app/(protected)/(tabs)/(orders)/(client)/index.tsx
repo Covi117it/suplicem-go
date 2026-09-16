@@ -33,7 +33,6 @@ const ClientOrdersMainScreen: React.FC = () => {
   const [search, setSearch] = useState("");
   const router = useRouter();
 
-  // 'setSelectedOrder' ya no se usa, así que la eliminamos de la desestructuración
   const { orders, setOrders } = useOrders();
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
@@ -48,8 +47,12 @@ const ClientOrdersMainScreen: React.FC = () => {
   const fetchOrders = async (searchTerm = search) => {
     try {
       show();
-      const response = await getMyOrders({ search: searchTerm });
-      setOrders(response.orders || []);
+      const response = await getMyOrders(searchTerm ? { search: searchTerm } : undefined);
+      if (response && response.orders && Array.isArray(response.orders)) {
+        setOrders(response.orders);
+      } else {
+        setOrders([]);
+      }
     } catch (error) {
       console.error("Error fetching orders:", error);
       showAlert({
@@ -60,8 +63,6 @@ const ClientOrdersMainScreen: React.FC = () => {
     hide();
   };
 
-
-  // Se modificó la función para que no use 'setSelectedOrder'
   const goToOrderDetail = (id: string) => {
     router.push({
       pathname: "/client-order-detail",
