@@ -9,7 +9,6 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { useAlert } from "@/context/alertContext";
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -50,14 +49,15 @@ const CreateTripScreen: React.FC = () => {
     try {
       show();
       console.log("🚀 Llamando getOrdersWithStatus...");
-      const data = await getOrdersWithStatus("approved");
-      console.log("📦 Respuesta:", data);
+      const data = await getOrdersWithStatus("approved", {
+        deliveryType: "domicilio",
+        withoutTrip: true,
+      });
 
       if (data?.success && data?.orders?.length > 0) {
-        const filteredOrders = data.orders?.filter(
-          (order: any) => !order.tripId && order?.deliveryType === "domicilio"
-        );
-        setApprovedOrders(filteredOrders);
+        setApprovedOrders(data.orders);
+      } else {
+        setApprovedOrders([]);
       }
     } catch (error) {
       console.error("❌ Error al obtener órdenes aprobadas:", error);

@@ -44,8 +44,12 @@ export const createUserAccount = async (data: any) => {
   return await safeRequest(() => api.post("/users", formData));
 };
 
-export const getUsers = async () => {
-  const response = await protectedApi.get("/users");
+export const getUsers = async (params?: {
+  status?: string;
+  userType?: string;
+  aiRiskFlag?: boolean;
+}) => {
+  const response = await protectedApi.get("/users", { params });
   return response.data;
 };
 

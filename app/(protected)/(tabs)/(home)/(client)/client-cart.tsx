@@ -1,5 +1,5 @@
 import { ORDER_PREFIX } from "@/constants/UserConstants";
-import { BANK_ACCOUNTS, BankAccount } from "@/constants/cartConstants";
+import { BankAccount } from "@/constants/cartConstants";
 import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
 import { AuthContext } from "@/context/authContext";
@@ -24,48 +24,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import CartDeliverySection, { DeliveryItem } from "@/components/cart/CartDeliverySection";
-import CartItemCard from "@/components/cart/CartItemCard";
-import CartPaymentSection from "@/components/cart/CartPaymentSection";
+import { CartDeliverySection, DeliveryItem } from "@/components/cart/CartDeliverySection";
+import { CartItemCard } from "@/components/cart/CartItemCard";
+import { CartPaymentSection } from "@/components/cart/CartPaymentSection";
 
-const DEFAULT_BANK_ACCOUNTS: BankAccount[] = [
-  {
-    id: "banreservas",
-    bankName: "Banreservas",
-    accountNumber: "960-123456-7",
-    accountType: "Cuenta Corriente",
-    rnc: "131-45678-9",
-    currency: "DOP (Pesos Dominicanos)",
-    holder: "SUPLICEM S.R.L.",
-  },
-  {
-    id: "bhd",
-    bankName: "Banco BHD",
-    accountNumber: "240-987654-3",
-    accountType: "Cuenta Corriente",
-    rnc: "131-45678-9",
-    currency: "DOP (Pesos Dominicanos)",
-    holder: "SUPLICEM S.R.L.",
-  },
-  {
-    id: "popular",
-    bankName: "Banco Popular",
-    accountNumber: "780-451239-1",
-    accountType: "Cuenta Corriente",
-    rnc: "131-45678-9",
-    currency: "DOP (Pesos Dominicanos)",
-    holder: "SUPLICEM S.R.L.",
-  },
-  {
-    id: "santacruz",
-    bankName: "Banco Santa Cruz",
-    accountNumber: "550-882314-9",
-    accountType: "Cuenta de Ahorros",
-    rnc: "131-45678-9",
-    currency: "DOP (Pesos Dominicanos)",
-    holder: "SUPLICEM S.R.L.",
-  },
-];
+
 
 const CartScreen: React.FC = () => {
   const {
@@ -86,7 +49,7 @@ const CartScreen: React.FC = () => {
 
   // Opciones de pago (Transferencia / Crédito)
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "credit">("transfer");
-  const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>(DEFAULT_BANK_ACCOUNTS);
+  const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>([]);
   const [selectedBankId, setSelectedBankId] = useState("");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [creditNote, setCreditNote] = useState<string>("");
@@ -96,10 +59,11 @@ const CartScreen: React.FC = () => {
     try {
       const response = await getBankAccounts();
       if (response.success && response.bankAccounts && response.bankAccounts.length > 0) {
-        const mapped: BankAccount[] = response.bankAccounts.map((b) => ({
+        const mapped: BankAccount[] = response.bankAccounts.map((b: any) => ({
           ...b,
+          bankName: b.bankName || b.bank || "Banco",
           currency: b.currency || "DOP (Pesos Dominicanos)",
-          holder: b.holder || "SUPLICEM S.R.L.",
+          holder: b.holder || b.accountHolder || "SUPLICEM S.R.L.",
         }));
         setBankAccountsList(mapped);
         setSelectedBankId((prevId) => {
@@ -126,8 +90,7 @@ const CartScreen: React.FC = () => {
     }, [fetchAccounts])
   );
 
-  const activeBankList = bankAccountsList.length > 0 ? bankAccountsList : DEFAULT_BANK_ACCOUNTS;
-  const selectedBank = activeBankList.find((b) => b.id === selectedBankId) || activeBankList[0];
+    const selectedBank = bankAccountsList.find((b) => b.id === selectedBankId) || bankAccountsList[0];
 
   const handleSelectDeliveryAddress = (addressDesc: string) => {
     setSelectedDeliveryAddress(addressDesc);
@@ -204,7 +167,7 @@ const CartScreen: React.FC = () => {
             allowsEditing: true,
           })
         : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ["images"],
             quality: 0.5,
             base64: true,
             allowsEditing: true,
@@ -265,28 +228,18 @@ const CartScreen: React.FC = () => {
         : [];
 
     const formattedItems = Object.values(groupedCart).map((item) => ({
-      productId: item.id,
-      quantity: item.fundas || 1,
-      name: item.name,
-      unitPrice: item.basePrice,
+    productId: item.id,
+    quantity: item.fundas || 1,
     }));
-
-    let finalComments = "";
-    if (paymentMethod === "transfer") {
-      finalComments = `Transferencia Bancaria a ${selectedBank.bankName} (No. ${selectedBank.accountNumber}, RNC: ${selectedBank.rnc})`;
-      if (receiptImage) finalComments += " - Comprobante adjunto";
-    } else {
-      finalComments = "Pago a Crédito" + (creditNote ? ` - Nota: ${creditNote}` : "");
-    }
-    if (reference) {
-      finalComments += `. Observación: ${reference}`;
-    }
 
     const dataToSend: any = {
       deliveryType,
       deliveries: formattedDeliveries,
       items: formattedItems,
-      comments: finalComments.trim(),
+      paymentMethod,
+      bankAccountId: paymentMethod === "transfer" ? selectedBankId : undefined,
+      creditNote: paymentMethod === "credit" ? creditNote.trim() : undefined,
+      comments: reference.trim(),
     };
 
     if (receiptImage) {
@@ -394,6 +347,7 @@ const CartScreen: React.FC = () => {
                 selectedBankId={selectedBankId}
                 onSelectBankId={setSelectedBankId}
                 selectedBank={selectedBank}
+                bankAccounts={bankAccountsList}
                 receiptImage={receiptImage}
                 onPickReceipt={handlePickReceipt}
                 onRemoveReceipt={handleRemoveReceipt}

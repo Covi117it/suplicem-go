@@ -3,7 +3,8 @@ import { useLoading } from "@/context/loadingContext";
 import { activeOrInactiveUser, getUsers } from "@/services/userService";
 import { User } from "@/types/users";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   Image,
   Modal,
@@ -22,14 +23,10 @@ const UserRequestsScreen: React.FC = () => {
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       show();
-      const res = await getUsers();
+      const res = await getUsers({ status: "pending" });
       if (res?.success) {
         setUsers(res.users);
       } else {
@@ -43,7 +40,13 @@ const UserRequestsScreen: React.FC = () => {
     } finally {
       hide();
     }
-  };
+  }, [show, hide, showAlert]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUsers();
+    }, [fetchUsers])
+  );
 
   const handleUpdateStatus = async (uid: string, status: string) => {
     try {

@@ -50,22 +50,6 @@ interface OrderDelivery {
   availableAddresses?: Address[];
 }
 
-interface OrderWithAddresses {
-  userAddresses: Address[];
-  id: string;
-  orderNumber: string;
-  userId: string; // Asegurarse de que el tipo tiene el userId
-  deliveryType: string;
-  deliveries: OrderDelivery[];
-  items: any[];
-  comments?: string;
-  receiptImage?: string;
-  status: string;
-  declineReason?: string;
-  userNames: string;
-  userLastNames: string;
-  userPhone?: string;
-}
 
 const isValidCedula = (value: string) => {
   if (!/^\d{11}$/.test(value)) return false;
@@ -79,6 +63,9 @@ const isValidCedula = (value: string) => {
   return (10 - (sum % 10)) % 10 === digits[10];
 };
 
+const generateTempPlaceId = () => `new-${Date.now()}`;
+const generateTempDeliveryId = () => Math.random().toString(36).substring(2, 9);
+
 const AdminOrderDetailScreen: React.FC = () => {
   const { orders, updateOrder } = useOrders();
   const { show, hide } = useLoading();
@@ -90,27 +77,20 @@ const AdminOrderDetailScreen: React.FC = () => {
   const [trip, setTrip] = useState<any>(null);
   const currentOrder = freshOrder || selectedOrder;
 
-  useFocusEffect(
-    useCallback(() => {
-      if (orderId) {
-        fetchFreshOrderDetails();
-        fetchTripDetails();
-      }
-    }, [orderId])
-  );
-
-  const fetchFreshOrderDetails = async () => {
+  const fetchFreshOrderDetails = useCallback(async () => {
     try {
-      const response = await getOrderDetail(orderId as string);
-      if (response?.success && response?.order) {
-        setFreshOrder(response.order);
+      if (orderId) {
+        const response = await getOrderDetail(orderId as string);
+        if (response?.success && response?.order) {
+          setFreshOrder(response.order);
+        }
       }
     } catch (error) {
       console.log("Error al cargar orden fresca:", error);
     }
-  };
+  }, [orderId]);
 
-  const fetchTripDetails = async () => {
+  const fetchTripDetails = useCallback(async () => {
     try {
       if (orderId) {
         const response = await getTripByOrderId(orderId as string);
@@ -121,7 +101,16 @@ const AdminOrderDetailScreen: React.FC = () => {
     } catch (error) {
       console.log("Error al cargar trip para admin:", error);
     }
-  };
+  }, [orderId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (orderId) {
+        fetchFreshOrderDetails();
+        fetchTripDetails();
+      }
+    }, [orderId, fetchFreshOrderDetails, fetchTripDetails])
+  );
 
   const [users, setUsers] = useState<User[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -151,13 +140,10 @@ const AdminOrderDetailScreen: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await getUsers();
-        if (response.success) {
-          const clients = response.users.filter(
-            (user: User) => user.userType === "client"
-          );
-          setUsers(clients);
-          console.log("Usuarios clientes obtenidos:", clients);
+        const response = await getUsers({ userType: "client" });
+        if (response.success && response.users) {
+          setUsers(response.users);
+          console.log("Usuarios clientes obtenidos:", response.users);
         } else {
           showAlert({
             message: "No se pudieron cargar los usuarios.",
@@ -173,7 +159,7 @@ const AdminOrderDetailScreen: React.FC = () => {
       }
     };
     fetchUsers();
-  }, []);
+  }, [showAlert]);
 
   const approveOrder = async () => {
     const targetId = currentOrder?.id || selectedOrder?.id;
@@ -513,27 +499,16 @@ const AdminOrderDetailScreen: React.FC = () => {
       }
     }
 
-    const newUserUid = `new-user-${Date.now()}`;
-
-    const newTempUser: User = {
-      uid: newUserUid,
-      names: newAddressData.recipientName,
-      lastNames: "",
-      identification: newAddressData.recipientDocument,
-      identificationType: newAddressData.recipientDocumentType,
-      email: "",
-      userType: "client",
-      addresses: [],
-    };
+    const targetUserUid = selectedOrder?.userId || "";
 
     const newAddress: Address = {
       ...newAddressData,
-      placeId: `new-${Date.now()}`,
-      userUid: newUserUid,
+      placeId: generateTempPlaceId(),
+      userUid: targetUserUid,
     };
 
     const newDelivery: OrderDelivery = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: generateTempDeliveryId(),
       productId: "",
       quantity: 0,
       unit: "fundas",
@@ -541,7 +516,6 @@ const AdminOrderDetailScreen: React.FC = () => {
       availableAddresses: [newAddress],
     };
 
-    setUsers((prevUsers) => [...prevUsers, newTempUser]);
     setEditedDeliveries((prevDeliveries) => [...prevDeliveries, newDelivery]);
 
     setIsAddingNewAddress(false);
