@@ -120,9 +120,6 @@ const TripsScreen: React.FC = () => {
     >
       <View style={styles.headerRow}>
         <Text style={styles.title}>Gestión de viajes</Text>
-        <TouchableOpacity onPress={() => router.push("/create-trip")}>
-          <Ionicons name="add-circle" size={32} color="#E31E24" />
-        </TouchableOpacity>
       </View>
 
       <TextInput

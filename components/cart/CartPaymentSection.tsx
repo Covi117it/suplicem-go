@@ -17,7 +17,8 @@ type CartPaymentSectionProps = {
   onPaymentMethodChange: (method: "transfer" | "credit") => void;
   selectedBankId: string;
   onSelectBankId: (id: string) => void;
-  selectedBank: BankAccount;
+  selectedBank?: BankAccount;
+  bankAccounts?: BankAccount[];
   receiptImage: string | null;
   onPickReceipt: (useCamera: boolean) => void;
   onRemoveReceipt: () => void;
@@ -31,6 +32,7 @@ export const CartPaymentSection: React.FC<CartPaymentSectionProps> = ({
   selectedBankId,
   onSelectBankId,
   selectedBank,
+  bankAccounts = [],
   receiptImage,
   onPickReceipt,
   onRemoveReceipt,
@@ -101,7 +103,7 @@ export const CartPaymentSection: React.FC<CartPaymentSectionProps> = ({
             style={{ marginBottom: 12 }}
           >
             <View style={{ flexDirection: "row", gap: 8 }}>
-              {BANK_ACCOUNTS.map((bank) => (
+              {bankAccounts.map((bank) => (
                 <TouchableOpacity
                   key={bank.id}
                   style={[
@@ -123,40 +125,46 @@ export const CartPaymentSection: React.FC<CartPaymentSectionProps> = ({
             </View>
           </ScrollView>
 
-          <View style={styles.bankInfoBox}>
-            <Text style={styles.paymentDetailText}>
-              Banco:{" "}
-              <Text style={{ fontWeight: "bold", color: Palette.primaryDark }}>
-                {selectedBank.bankName}
+          {selectedBank ? (
+            <View style={styles.bankInfoBox}>
+              <Text style={styles.paymentDetailText}>
+                Banco:{" "}
+                <Text style={{ fontWeight: "bold", color: Palette.primaryDark }}>
+                  {selectedBank.bankName}
+                </Text>
               </Text>
-            </Text>
-            <Text style={styles.paymentDetailText}>
-              No. de Cuenta:{" "}
-              <Text style={{ fontWeight: "bold", color: Palette.primary }}>
-                {selectedBank.accountNumber}
+              <Text style={styles.paymentDetailText}>
+                No. de Cuenta:{" "}
+                <Text style={{ fontWeight: "bold", color: Palette.primary }}>
+                  {selectedBank.accountNumber}
+                </Text>
               </Text>
-            </Text>
-            <Text style={styles.paymentDetailText}>
-              Tipo de Cuenta:{" "}
-              <Text style={{ fontWeight: "bold" }}>
-                {selectedBank.accountType}
+              <Text style={styles.paymentDetailText}>
+                Tipo de Cuenta:{" "}
+                <Text style={{ fontWeight: "bold" }}>
+                  {selectedBank.accountType}
+                </Text>
               </Text>
-            </Text>
-            <Text style={styles.paymentDetailText}>
-              RNC:{" "}
-              <Text style={{ fontWeight: "bold" }}>{selectedBank.rnc}</Text>
-            </Text>
-            <Text style={styles.paymentDetailText}>
-              Moneda:{" "}
-              <Text style={{ fontWeight: "bold" }}>
-                {selectedBank.currency}
+              <Text style={styles.paymentDetailText}>
+                RNC:{" "}
+                <Text style={{ fontWeight: "bold" }}>{selectedBank.rnc}</Text>
               </Text>
-            </Text>
-            <Text style={styles.paymentDetailText}>
-              Titular:{" "}
-              <Text style={{ fontWeight: "bold" }}>{selectedBank.holder}</Text>
-            </Text>
-          </View>
+              <Text style={styles.paymentDetailText}>
+                Moneda:{" "}
+                <Text style={{ fontWeight: "bold" }}>
+                  {selectedBank.currency}
+                </Text>
+              </Text>
+              <Text style={styles.paymentDetailText}>
+                Titular:{" "}
+                <Text style={{ fontWeight: "bold" }}>{selectedBank.holder}</Text>
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.bankInfoBox, { alignItems: "center", paddingVertical: 16 }]}>
+              <Text style={{ color: Palette.placeholder }}>Cargando cuentas bancarias...</Text>
+            </View>
+          )}
 
           <Text style={styles.paymentDetailSubtext}>
             Adjunta una foto o captura de tu comprobante de pago para procesar tu orden.

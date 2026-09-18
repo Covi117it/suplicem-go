@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, UrlTile } from "react-native-maps";
 import { statusMap } from "../../(orders)/(driver)/driver-trips";
 
 const TripDetailScreen: React.FC = () => {
@@ -294,6 +294,7 @@ const TripDetailScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>Ubicación actual del camión</Text>
             <MapView
               style={styles.map}
+              mapType="none"
               initialRegion={{
                 latitude: driverLocation.latitude,
                 longitude: driverLocation.longitude,
@@ -301,7 +302,13 @@ const TripDetailScreen: React.FC = () => {
                 longitudeDelta: 0.01,
               }}
             >
-              <Marker.Animated
+              <UrlTile
+                urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maximumZ={19}
+                flipY={false}
+                zIndex={-1}
+              />
+              <Marker
                 coordinate={driverLocation}
                 title="Camión"
                 description="Ubicación actual"
@@ -311,7 +318,7 @@ const TripDetailScreen: React.FC = () => {
                   style={{ width: 40, height: 40 }}
                   resizeMode="contain"
                 />
-              </Marker.Animated>
+              </Marker>
 
               {/* Marcadores de direcciones de entrega */}
               {trip?.orders?.map((order) =>

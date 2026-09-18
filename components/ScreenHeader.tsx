@@ -7,6 +7,7 @@ export interface ScreenHeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  onBack?: () => void;
   onRefresh?: () => void;
   rightAction?: React.ReactNode;
   style?: ViewStyle;
@@ -16,18 +17,29 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
   title,
   subtitle,
   showBack = false,
+  onBack,
   onRefresh,
   rightAction,
   style,
 }) => {
   const router = useRouter();
 
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(protected)/(tabs)/(home)/(driver)");
+    }
+  };
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.leftContainer}>
         {showBack && (
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >

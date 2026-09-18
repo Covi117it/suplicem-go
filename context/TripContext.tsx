@@ -2,18 +2,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
   PropsWithChildren,
+  useContext,
   useEffect,
   useState,
 } from "react";
+import { AuthContext } from "./authContext";
 
-// NUEVA INTERFAZ `Address` agregada aquí
-export interface Address {
-  id: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-  additionalInfo?: string | null; // El campo `additionalInfo` es opcional
-}
+import { Address } from "@/types/users";
+export type { Address };
 
 // Tipos para los detalles del viaje aceptado
 export type Delivery = {
@@ -84,30 +80,66 @@ export const AcceptedTripContext = createContext<AcceptedTripState>({
 
 // Provider
 export const AcceptedTripProvider = ({ children }: PropsWithChildren) => {
+  const { user } = useContext(AuthContext);
   const [trip, setTrip] = useState<AcceptedTrip | null>(null);
+
+  const getStorageKey = (uid?: string) =>
+    uid ? `accepted-trip-${uid}` : "accepted-trip-key";
 
   useEffect(() => {
     const loadTrip = async () => {
+      if (!user?.uid) {
+        setTrip(null);
+        return;
+      }
       try {
-        const value = await AsyncStorage.getItem(acceptedTripStorageKey);
+        const userKey = getStorageKey(user.uid);
+        let value = await AsyncStorage.getItem(userKey);
+
+        if (!value) {
+          const globalValue = await AsyncStorage.getItem(acceptedTripStorageKey);
+          if (globalValue) {
+            const parsedGlobal = JSON.parse(globalValue);
+            if (
+              parsedGlobal &&
+              (parsedGlobal.assignedDriverId === user.uid ||
+                parsedGlobal.driverId === user.uid)
+            ) {
+              value = globalValue;
+            } else {
+              await AsyncStorage.removeItem(acceptedTripStorageKey);
+            }
+          }
+        }
+
         if (value) {
           const parsed = JSON.parse(value);
-          setTrip(parsed);
+          if (
+            parsed &&
+            (parsed.assignedDriverId === user.uid ||
+              parsed.driverId === user.uid ||
+              parsed.driver?.id === user.uid)
+          ) {
+            setTrip(parsed);
+          } else {
+            setTrip(null);
+            await AsyncStorage.removeItem(userKey);
+          }
+        } else {
+          setTrip(null);
         }
       } catch (error) {
         console.error("❌ Error cargando el viaje aceptado:", error);
       }
     };
     loadTrip();
-  }, []);
+  }, [user?.uid]);
 
   const saveTrip = async (newTrip: AcceptedTrip) => {
     try {
       setTrip(newTrip);
-      await AsyncStorage.setItem(
-        acceptedTripStorageKey,
-        JSON.stringify(newTrip)
-      );
+      const key = getStorageKey(user?.uid);
+      await AsyncStorage.setItem(key, JSON.stringify(newTrip));
     } catch (error) {
       console.error("❌ Error guardando el viaje aceptado:", error);
     }
@@ -116,6 +148,8 @@ export const AcceptedTripProvider = ({ children }: PropsWithChildren) => {
   const clearTrip = async () => {
     try {
       setTrip(null);
+      const key = getStorageKey(user?.uid);
+      await AsyncStorage.removeItem(key);
       await AsyncStorage.removeItem(acceptedTripStorageKey);
     } catch (error) {
       console.error("❌ Error limpiando el viaje aceptado:", error);

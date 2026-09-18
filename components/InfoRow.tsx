@@ -49,12 +49,14 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingVertical: 5,
+    gap: 12,
   },
   labelContainer: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
   },
   icon: {
     marginRight: 6,
@@ -68,6 +70,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1E293B",
     fontWeight: "600",
+    flex: 1,
+    textAlign: "right",
   },
 });
 

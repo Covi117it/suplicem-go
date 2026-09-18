@@ -3,10 +3,12 @@ import { useLoading } from "@/context/loadingContext";
 import { activeOrInactiveUser, getUsers } from "@/services/userService";
 import { User } from "@/types/users";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   Image,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,35 +17,45 @@ import {
 } from "react-native";
 
 const UserRequestsScreen: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [aiAlertUsers, setAiAlertUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<"pending" | "ai_alerts">("pending");
   const [selectedIdImage, setSelectedIdImage] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
-      show();
-      const res = await getUsers();
-      if (res?.success) {
-        setUsers(res.users);
-      } else {
-        showAlert({
-          message: "No se pudieron obtener las solicitudes de registro",
-          type: "error",
-        });
+      setRefreshing(true);
+      const [pendingRes, aiRes] = await Promise.all([
+        getUsers({ status: "pending" }),
+        getUsers({ aiRiskFlag: true }),
+      ]);
+
+      if (pendingRes?.success && pendingRes.users) {
+        setPendingUsers(pendingRes.users);
+      }
+      if (aiRes?.success && aiRes.users) {
+        setAiAlertUsers(aiRes.users);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error al obtener solicitudes:", error);
+      showAlert({
+        message: "Error al obtener solicitudes de registro",
+        type: "error",
+      });
     } finally {
-      hide();
+      setRefreshing(false);
     }
-  };
+  }, [showAlert]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUsers();
+    }, [fetchUsers])
+  );
 
   const handleUpdateStatus = async (uid: string, status: string) => {
     try {
@@ -54,7 +66,8 @@ const UserRequestsScreen: React.FC = () => {
           message: `Estado actualizado a "${status === "active" ? "Aprobado" : "Rechazado"}"`,
           type: status === "active" ? "success" : "info",
         });
-        setUsers((prev) =>
+        setPendingUsers((prev) => prev.filter((u) => u.uid !== uid));
+        setAiAlertUsers((prev) =>
           prev.map((u) => (u.uid === uid ? { ...u, status } : u))
         );
       }
@@ -69,13 +82,21 @@ const UserRequestsScreen: React.FC = () => {
     }
   };
 
-  const pendingUsers = users.filter((u) => u.status === "pending");
-  const aiAlertUsers = users.filter((u) => (u as any).aiRiskFlag === true);
-
   const currentList = activeTab === "pending" ? pendingUsers : aiAlertUsers;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={fetchUsers}
+          colors={["#E31E24"]}
+          tintColor="#E31E24"
+        />
+      }
+    >
       <View style={styles.headerRow}>
         <Text style={styles.title}>Solicitudes de Registro</Text>
         <TouchableOpacity onPress={fetchUsers} style={styles.refreshButton}>

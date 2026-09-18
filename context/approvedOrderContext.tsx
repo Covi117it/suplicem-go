@@ -1,32 +1,29 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
+import { Order } from "@/types/orders";
+import { useOrders } from "./orderContext";
 
-type ApprovedOrder = {
-  trackingEnabled: any;
-  id: string;
-  orderNumber: string;
-  userNames: string;
-  userLastNames: string;
-  userId: string;
-  deliveryType: string;
-  deliveries: any[];
-  items: any[];
-  comments: string;
-  status: string;
-  createdAt: string;
-};
+export type ApprovedOrder = Order;
 
 type ApprovedOrdersContextType = {
-  approvedOrders: ApprovedOrder[];
-  setApprovedOrders: React.Dispatch<React.SetStateAction<ApprovedOrder[]>>;
-  selectedApprovedOrder: ApprovedOrder | null;
-  setSelectedApprovedOrder: React.Dispatch<React.SetStateAction<ApprovedOrder | null>>;
+  approvedOrders: Order[];
+  setApprovedOrders: (orders: Order[] | ((prev: Order[]) => Order[])) => void;
+  selectedApprovedOrder: Order | null;
+  setSelectedApprovedOrder: React.Dispatch<React.SetStateAction<Order | null>>;
 };
 
 const ApprovedOrdersContext = createContext<ApprovedOrdersContextType | undefined>(undefined);
 
 export const ApprovedOrdersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [approvedOrders, setApprovedOrders] = useState<ApprovedOrder[]>([]);
-  const [selectedApprovedOrder, setSelectedApprovedOrder] = useState<ApprovedOrder | null>(null);
+  const { orders } = useOrders();
+  const [selectedApprovedOrder, setSelectedApprovedOrder] = useState<Order | null>(null);
+
+  // Deriva automáticamente las órdenes aprobadas directamente desde OrdersContext sin duplicar estado en memoria
+  const approvedOrders = useMemo(() => {
+    return orders.filter((o) => o.status === "approved");
+  }, [orders]);
+
+  // No-op para mantener retrocompatibilidad con pantallas que llamaban setApprovedOrders manualmente
+  const setApprovedOrders = () => {};
 
   return (
     <ApprovedOrdersContext.Provider

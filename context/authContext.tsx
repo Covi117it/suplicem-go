@@ -24,6 +24,7 @@ type AuthState = {
   isReady: boolean;
   user: User | null;
   logIn: (user: User) => void;
+  updateUser: (updates: Partial<User>) => void;
   logOut: () => void;
 };
 
@@ -34,6 +35,7 @@ export const AuthContext = createContext<AuthState>({
   isReady: false,
   user: null,
   logIn: () => {},
+  updateUser: () => {},
   logOut: () => {},
 });
 
@@ -62,12 +64,31 @@ export function AuthProvider({ children }: PropsWithChildren) {
     router.replace("/");
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updates };
+      storeAuthState({ isLoggedIn: true, user: updated });
+      return updated;
+    });
+  };
+
   const logOut = async () => {
+    const prevUid = user?.uid;
     setIsLoggedIn(false);
     setUser(null);
     storeAuthState({ isLoggedIn: false, user: null });
 
     await clearAuthSession();
+
+    try {
+      await AsyncStorage.removeItem("accepted-trip-key");
+      if (prevUid) {
+        await AsyncStorage.removeItem(`accepted-trip-${prevUid}`);
+      }
+    } catch (e) {
+      console.log("Error clearing cached trip on logout:", e);
+    }
 
     router.replace("/login");
   };
@@ -97,7 +118,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [isReady]);
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isReady, user, logIn, logOut }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, isReady, user, logIn, updateUser, logOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

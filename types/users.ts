@@ -7,7 +7,8 @@ export type VehicleData = {
 };
 
 export interface Address {
-  placeId: string;
+  id?: string;
+  placeId?: string;
   description: string;
   latitude: number;
   longitude: number;
@@ -15,22 +16,25 @@ export interface Address {
   recipientName?: string;
   recipientDocument?: string;
   recipientDocumentType?: string;
-  // Agrega esta línea para que TypeScript reconozca userUid
   userUid?: string; 
 }
 
 export type User = {
   uid?: string;
-  identificationType: "Cedula" | "Pasaporte";
+  identificationType: "Cedula" | "Pasaporte" | string;
   identification: string;
   email: string;
   names: string;
   lastNames: string;
   phone: string;
-  userType: "client" | "driver";
-  addresses: Address[];
+  userType: "client" | "driver" | "admin";
+  driverCode?: string;
+  addresses?: Address[];
   vehicle?: VehicleData;
   status?: string;
+  aiRiskFlag?: boolean;
+  aiRiskScore?: number;
+  aiRiskReason?: string;
 };
 
 export interface RegisterFormData extends User {

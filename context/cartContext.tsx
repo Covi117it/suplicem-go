@@ -27,7 +27,7 @@ const cartStorageKey = "cart-key";
 
 export const CartContext = createContext<CartState>({
   cart: [],
-  deliveryType: "almacen",
+  deliveryType: "domicilio",
   updateDeliveryType: () => {},
   updateProductInCart: () => {},
   addToCart: () => {},
@@ -38,7 +38,7 @@ export const CartContext = createContext<CartState>({
 
 export const CartProvider = ({ children }: PropsWithChildren) => {
   const [cart, setCart] = useState<Product[]>([]);
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>("almacen");
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>("domicilio");
 
 
   const { showAlert } = useAlert();

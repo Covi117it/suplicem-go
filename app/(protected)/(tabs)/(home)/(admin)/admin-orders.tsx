@@ -1,14 +1,16 @@
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { useAlert } from "@/context/alertContext";
-import { useApprovedOrders } from "@/context/approvedOrderContext";
 import { useLoading } from "@/context/loadingContext";
 import { useOrders } from "@/context/orderContext";
 import { getAllOrders } from "@/services/orderService";
+import { OrderStatus } from "@/types/orders";
+import { StatusBadge, getStatusConfig } from "@/components/StatusBadge";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,26 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-type OrderStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "on_the_way"
-  | "delivered"
-  | "requested";
-
-type LocalAdminOrder = {
-  id: string;
-  orderNumber: string;
-  userNames: string;
-  userLastNames: string;
-  clientName: string;
-  items: any[];
-  status: OrderStatus;
-  declineReason?: string;
-  deliveryType?: string;
-};
 
 const STATUS_OPTIONS: OrderStatus[] = [
   "pending",
@@ -46,74 +28,26 @@ const STATUS_OPTIONS: OrderStatus[] = [
   "requested",
 ];
 
-const mapStatusToDisplay = (status: OrderStatus) => {
-  switch (status) {
-    case "pending":
-    case "requested":
-      return "Pendiente";
-    case "approved":
-      return "Aprobada";
-    case "rejected":
-      return "Rechazada";
-    case "on_the_way":
-      return "En Camino";
-    case "delivered":
-      return "Entregada";
-    default:
-      return status;
-  }
-};
-
-const statusColors: Record<OrderStatus, string> = {
-  pending: "#FFC107",
-  requested: "#FFC107",
-  approved: "#4CAF50",
-  rejected: "#F44336",
-  on_the_way: "#03A9F4",
-  delivered: "#4CAF50",
-};
-
 const AdminOrdersScreen = () => {
   const { orders, setOrders } = useOrders();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "Todos" | "Alertas IA">(
     "Todos"
   );
-  const { show, hide } = useLoading();
-  const { setApprovedOrders } = useApprovedOrders();
+  const [refreshing, setRefreshing] = useState(false);
   const { showAlert } = useAlert();
   const router = useRouter();
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchOrders();
-    }, [])
-  );
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
-      show();
-      const response = await getAllOrders();
+      setRefreshing(true);
+      const statusParam =
+        statusFilter !== "Todos" && statusFilter !== "Alertas IA"
+          ? statusFilter
+          : undefined;
+      const response = await getAllOrders(statusParam ? { status: statusParam } : undefined);
       if (response.success && response.orders) {
         setOrders(response.orders);
-
-        const approvedOnly = response.orders
-          .filter((order: any) => order.status === "approved")
-          .map((order: any) => ({
-            trackingEnabled: false,
-            id: order.id,
-            orderNumber: order.orderNumber,
-            userNames: order.userNames,
-            userLastNames: order.userLastNames,
-            userId: order.userId,
-            deliveryType: order.deliveryType || "",
-            deliveries: order.deliveries || [],
-            items: order.items || [],
-            comments: order.comments || "",
-            status: order.status,
-            createdAt: order.createdAt || "",
-          }));
-        setApprovedOrders(approvedOnly);
       } else {
         showAlert({
           message: "No se pudieron cargar las órdenes.",
@@ -122,15 +56,20 @@ const AdminOrdersScreen = () => {
       }
     } catch (error) {
       console.error(error);
-
       showAlert({
         message: "Ocurrió un error al obtener las órdenes.",
         type: "error",
       });
     } finally {
-      hide();
+      setRefreshing(false);
     }
-  };
+  }, [statusFilter, setOrders, showAlert]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [fetchOrders])
+  );
 
   const handleViewDetails = (orderId: string) => {
     router.push({
@@ -166,6 +105,14 @@ const AdminOrdersScreen = () => {
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={fetchOrders}
+            colors={["#E31E24"]}
+            tintColor="#E31E24"
+          />
+        }
       >
         <View style={styles.topLogoContainer}>
           <Image
@@ -213,7 +160,7 @@ const AdminOrdersScreen = () => {
                   ? "Todos"
                   : status === "Alertas IA"
                   ? "⚠️ Alertas IA"
-                  : mapStatusToDisplay(status as OrderStatus)}
+                  : getStatusConfig(status).label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -224,8 +171,8 @@ const AdminOrdersScreen = () => {
             if (a.status === "pending" && b.status !== "pending") return -1;
             if (a.status !== "pending" && b.status === "pending") return 1;
 
-            const orderA = parseInt(a.orderNumber, 10);
-            const orderB = parseInt(b.orderNumber, 10);
+            const orderA = parseInt(String(a.orderNumber), 10);
+            const orderB = parseInt(String(b.orderNumber), 10);
             return orderB - orderA;
           })
           .map((order) => (
@@ -248,16 +195,7 @@ const AdminOrdersScreen = () => {
                   {ORDER_PREFIX.ORD}
                   {order.orderNumber}
                 </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: statusColors[order.status] },
-                  ]}
-                >
-                  <Text style={styles.statusBadgeText}>
-                    {mapStatusToDisplay(order.status)}
-                  </Text>
-                </View>
+                <StatusBadge status={order.status} size="small" />
               </View>
 
               <Text style={styles.info}>

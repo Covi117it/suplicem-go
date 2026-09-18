@@ -2,6 +2,7 @@ import { useAlert } from "@/context/alertContext";
 import { useLoading } from "@/context/loadingContext";
 import { useMountEffect } from "@/hooks/lifeCicle";
 import { activeOrInactiveUser, getUsers } from "@/services/userService";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
@@ -145,11 +146,6 @@ const UsersListScreen: React.FC = () => {
     })
   );
 
-  const translateStatus = (status: string) => {
-    if (status === "active") return "Activo";
-    if (status === "inactive") return "Inactivo";
-    return status;
-  };
   const translateRole = (role: string) => {
     switch (role) {
       case "admin":
@@ -188,19 +184,7 @@ const UsersListScreen: React.FC = () => {
               </Text>
               <Text style={styles.userEmail}>{user.email}</Text>
             </View>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor:
-                    user.status === "active" ? "#28a745" : "#dc3545",
-                },
-              ]}
-            >
-              <Text style={styles.statusBadgeText}>
-                {translateStatus(user.status)}
-              </Text>
-            </View>
+            <StatusBadge status={user.status} size="small" />
           </View>
 
           <View style={styles.userDetailRow}>
@@ -216,6 +200,18 @@ const UsersListScreen: React.FC = () => {
               {user.identificationType} - {user.identification}
             </Text>
           </View>
+
+          {user.userType === "driver" && (
+            <View style={styles.driverIdBadgeAdmin}>
+              <Ionicons name="barcode-outline" size={16} color="#0F294A" />
+              <Text style={styles.driverIdAdminText}>
+                ID Conductor:{" "}
+                <Text style={{ fontWeight: "bold", color: "#E31E24" }}>
+                  {user.driverCode || (user.uid ? `COND-${user.uid.slice(0, 5).toUpperCase()}` : "COND-XXXX")}
+                </Text>
+              </Text>
+            </View>
+          )}
 
           {user.userType === "driver" && user.vehicle && (
             <View style={styles.driverPlateBadgeAdmin}>
@@ -335,6 +331,24 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  driverIdBadgeAdmin: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FEE2E2",
+    borderColor: "#FECACA",
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  driverIdAdminText: {
+    fontSize: 13,
+    color: "#991B1B",
+    fontWeight: "500",
   },
   driverPlateBadgeAdmin: {
     flexDirection: "row",

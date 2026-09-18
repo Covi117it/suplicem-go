@@ -54,6 +54,9 @@ export const createOrder = async (order: {
     unitPrice?: number;
     subtotal?: number;
   }[];
+  paymentMethod?: "transfer" | "credit"; 
+  bankAccountId?: string;             
+  creditNote?: string;               
   comments?: string;
   receiptImage?: string;
 }) => {
@@ -62,22 +65,36 @@ export const createOrder = async (order: {
 };
 
 export const orderDelivered = async (id: string, index: number) => {
-  const result = await safeRequest(() => protectedApi.patch(`orders/${id}/deliveries/${index}`));
+  const result = await safeRequest(() => protectedApi.patch(`/orders/${id}/deliveries/${index}`, {}));
   return result.success ? result.data : { success: false, message: result.message };
 };
 
-export const getAllOrders = async () => {
-  const result = await safeRequest(() => protectedApi.get("/orders"));
+export const getAllOrders = async (params?: {
+  status?: string;
+  deliveryType?: string;
+  userId?: string;
+  withoutTrip?: boolean;
+}) => {
+  const result = await safeRequest(() =>
+    protectedApi.get("/orders", { params })
+  );
   if (result.success && result.data) {
     return result.data;
   }
   return { success: false, orders: [], message: result.message };
 };
 
-export const getOrdersWithStatus = async (status: string) => {
+export const getOrdersWithStatus = async (
+  status: string,
+  extraParams?: {
+    deliveryType?: string;
+    userId?: string;
+    withoutTrip?: boolean;
+  }
+) => {
   const result = await safeRequest(() =>
     protectedApi.get("/orders", {
-      params: { status },
+      params: { status, ...extraParams },
     })
   );
   if (result.success && result.data) {
@@ -86,9 +103,10 @@ export const getOrdersWithStatus = async (status: string) => {
   return { success: false, orders: [], message: result.message };
 };
 
-export const approveOrder = async (id: string) => {
+export const approveOrder = async (id: string, driverId?: string) => {
   const response = await protectedApi.patch(`/orders/${id}/status`, {
     status: "approved",
+    driverId,
   });
   return response.data;
 };
