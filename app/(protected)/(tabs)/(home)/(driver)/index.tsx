@@ -1,5 +1,5 @@
-import CheckRender from "@/components/CheckRender";
 import { useAlert } from "@/context/alertContext";
+import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import {
@@ -20,13 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-type Trip = {
-  id: string;
-  tripNumber: string;
-  totalTons: number;
-  createdAt: string;
-};
+import { Trip } from "@/types/trips";
 
 // Componente para el mensaje de no hay viajes (NUEVO)
 const NoTripsMessage = () => (
@@ -42,9 +36,11 @@ const NoTripsMessage = () => (
 
 const DriverHomeScreen = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [activeTrip, setActiveTrip] = useState<any>(null);
   const router = useRouter();
   const { show, hide } = useLoading();
-  const { saveTrip } = useContext(AcceptedTripContext);
+  const { user } = useContext(AuthContext);
+  const { saveTrip, clearTrip } = useContext(AcceptedTripContext);
   const [actualTripInProgress, setActualTripInProgress] = useState(false);
   const { showAlert } = useAlert();
 
@@ -52,7 +48,7 @@ const DriverHomeScreen = () => {
     useCallback(() => {
       const getTripsAsync = async () => {
         show();
-        fetchTrips();
+        await fetchTrips();
         await validateTrips();
         hide();
       };
@@ -66,16 +62,33 @@ const DriverHomeScreen = () => {
 
   const validateTrips = async () => {
     try {
-      setActualTripInProgress(false);
       const response = await getDriverActiveTrip();
 
       if (response?.success && response?.data?.hasActiveTrip && response?.data?.trip) {
-        setActualTripInProgress(true);
-        saveTrip(response.data.trip);
-        router.push("/driver-order");
+        const trip = response.data.trip;
+        const isMyTrip =
+          !user?.uid ||
+          trip.assignedDriverId === user?.uid ||
+          trip.driverId === user?.uid ||
+          trip.driver?.id === user?.uid;
+
+        if (isMyTrip) {
+          // Un viaje nada más está "en curso" luego de que se le da a iniciar viaje (status === "started" | "in_progress")
+          const isStarted = trip.status === "started" || trip.status === "in_progress";
+          setActualTripInProgress(isStarted);
+          setActiveTrip(trip);
+          saveTrip(trip);
+          return;
+        }
       }
+
+      setActualTripInProgress(false);
+      setActiveTrip(null);
+      clearTrip();
     } catch (error) {
       console.error("Error validando viaje activo:", error);
+      setActualTripInProgress(false);
+      setActiveTrip(null);
     }
   };
 
@@ -88,6 +101,8 @@ const DriverHomeScreen = () => {
           tripNumber: trip.tripNumber,
           totalTons: trip.totalTons,
           createdAt: trip.createdAt,
+          assignedDriverId: trip.assignedDriverId,
+          comments: trip.comments,
         }));
 
         setTrips(mappedTrips);
@@ -106,37 +121,76 @@ const DriverHomeScreen = () => {
   };
 
   const handleAcceptTrip = async (tripId: string) => {
+    // Si ya hay un viaje iniciado en curso (started/in_progress), no permitir iniciar otro hasta completarlo
+    const hasStartedTrip =
+      activeTrip && (activeTrip.status === "started" || activeTrip.status === "in_progress");
+
+    if (hasStartedTrip) {
+      showAlert({
+        message: `Ya tienes el viaje #${activeTrip.tripNumber || ""} en curso. Debes completarlo antes de aceptar uno nuevo.`,
+        type: "warning",
+      });
+      return;
+    }
+
+    // Si el conductor ya aceptó este viaje previamente, llevarlo directamente a los detalles para que pueda iniciarlo
+    if (activeTrip && activeTrip.id === tripId && activeTrip.status === "accepted") {
+      saveTrip(activeTrip);
+      router.push("/driver-order");
+      return;
+    }
+
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        showAlert({ message: "Debe activar la ubicación", type: "warning" });
-        return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          console.warn("Ubicación no concedida al aceptar el viaje");
+        }
+      } catch (e) {
+        console.warn("Aviso de permisos de ubicación:", e);
       }
+
       show();
 
       const acceptResponse = await aceptedTrip(tripId);
 
       if (acceptResponse.success) {
-        setActualTripInProgress(true);
-        const tripResponse = await getTripDetail(tripId);
-
-        if (tripResponse.success && tripResponse.trip) {
-          saveTrip(tripResponse.trip);
-          showAlert({ message: "Conduce con cuidado.", type: "success" });
-          router.push("/driver-order");
-        } else {
-          showAlert({
-            message: "No se pudo cargar el detalle del viaje.",
-            type: "error",
-          });
+        // Al aceptar, el viaje queda en estado "accepted" (no "started" hasta que el conductor presione Iniciar viaje)
+        try {
+          const tripResponse = await getTripDetail(tripId);
+          if (tripResponse?.success && tripResponse?.trip) {
+            saveTrip(tripResponse.trip);
+            setActiveTrip(tripResponse.trip);
+          } else {
+            const currentTrip = trips.find((t) => t.id === tripId);
+            const fallbackTrip = {
+              id: tripId,
+              tripNumber: currentTrip?.tripNumber || "---",
+              totalTons: currentTrip?.totalTons || 0,
+              createdAt: currentTrip?.createdAt || new Date().toISOString(),
+              assignedDriverId: user?.uid || "",
+              status: "accepted",
+              orderIds: [],
+              orders: [],
+              comments: currentTrip?.comments || "",
+            };
+            saveTrip(fallbackTrip as any);
+            setActiveTrip(fallbackTrip);
+          }
+        } catch (detailErr) {
+          console.warn("Aviso al obtener detalle de viaje:", detailErr);
         }
+
+        showAlert({ message: "Viaje aceptado correctamente.", type: "success" });
+        await fetchTrips();
+        router.push("/driver-order");
       } else {
         showAlert({
           message: acceptResponse?.message || "No se pudo aceptar el viaje.",
           type: "error",
         });
 
-        fetchTrips();
+        await fetchTrips();
       }
     } catch (error) {
       console.error("❌ Error accepting trip:", error);
@@ -162,6 +216,72 @@ const DriverHomeScreen = () => {
         />
       </View>
 
+      {/* Banner de Viaje Activo / Aceptado */}
+      {activeTrip && (
+        <View style={styles.activeTripCard}>
+          <View style={styles.activeTripHeaderRow}>
+            <View
+              style={[
+                styles.activeTripIconCircle,
+                activeTrip.status === "accepted" && { backgroundColor: "#2563EB" },
+              ]}
+            >
+              <Ionicons
+                name={activeTrip.status === "accepted" ? "checkmark-circle" : "navigate"}
+                size={20}
+                color="#fff"
+              />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.activeTripTitle}>
+                {activeTrip.status === "accepted"
+                  ? `Viaje aceptado: #${activeTrip.tripNumber}`
+                  : `Viaje en curso: #${activeTrip.tripNumber}`}
+              </Text>
+              <Text style={styles.activeTripSubtitle}>
+                {activeTrip.status === "accepted"
+                  ? `Listo para iniciar ruta • ${activeTrip.totalTons} Toneladas`
+                  : `Ruta en camino • ${activeTrip.totalTons} Toneladas`}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.activeTripStatusBadge,
+                activeTrip.status === "accepted" && { backgroundColor: "#DBEAFE" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.activeTripStatusText,
+                  activeTrip.status === "accepted" && { color: "#1D4ED8" },
+                ]}
+              >
+                {activeTrip.status === "accepted" ? "Aceptado" : "En curso"}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.continueTripButton,
+              activeTrip.status === "accepted" && { backgroundColor: "#2563EB" },
+            ]}
+            activeOpacity={0.85}
+            onPress={() => {
+              saveTrip(activeTrip);
+              router.push("/driver-order");
+            }}
+          >
+            <Text style={styles.continueTripButtonText}>
+              {activeTrip.status === "accepted"
+                ? "Ir al viaje para iniciar ruta"
+                : "Ver detalle del viaje en curso"}
+            </Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.headerRow}>
         <Text style={styles.title}>Viajes disponibles</Text>
         <TouchableOpacity onPress={fetchTrips} style={styles.refreshButton}>
@@ -172,7 +292,18 @@ const DriverHomeScreen = () => {
       {trips.length > 0 ? (
         trips.map((trip, index) => (
           <View key={trip.id} style={styles.card}>
-            <Text style={styles.label}>Viaje: {trip.tripNumber}</Text>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.label}>Viaje: {trip.tripNumber}</Text>
+              {trip.assignedDriverId && (!user?.uid || trip.assignedDriverId === user?.uid) ? (
+                <View style={styles.assignedBadge}>
+                  <Text style={styles.assignedBadgeText}>🎯 Asignado para ti</Text>
+                </View>
+              ) : (
+                <View style={styles.generalBadge}>
+                  <Text style={styles.generalBadgeText}>Disponible</Text>
+                </View>
+              )}
+            </View>
 
             <View style={styles.infoRow}>
               <Ionicons name="cube-outline" size={18} color="#E31E24" />
@@ -186,15 +317,32 @@ const DriverHomeScreen = () => {
               </Text>
             </View>
 
-            <CheckRender allowed={index === 0 && !actualTripInProgress}>
-              <TouchableOpacity
-                style={styles.button}
-                activeOpacity={0.8}
-                onPress={() => handleAcceptTrip(trip.id)}
-              >
-                <Text style={styles.buttonText}>Aceptar viaje</Text>
-              </TouchableOpacity>
-            </CheckRender>
+            {trip.comments ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#666" />
+                <Text style={[styles.detail, { color: "#666" }]}>
+                  {trip.comments}
+                </Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                actualTripInProgress && { backgroundColor: "#888" },
+                activeTrip?.id === trip.id && activeTrip?.status === "accepted" && { backgroundColor: "#2563EB" },
+              ]}
+              activeOpacity={0.8}
+              onPress={() => handleAcceptTrip(trip.id)}
+            >
+              <Text style={styles.buttonText}>
+                {activeTrip?.id === trip.id && activeTrip?.status === "accepted"
+                  ? "Iniciar viaje"
+                  : actualTripInProgress
+                  ? "Viaje en curso"
+                  : "Aceptar viaje"}
+              </Text>
+            </TouchableOpacity>
           </View>
         ))
       ) : (
@@ -261,11 +409,42 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  cardHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   label: {
     fontSize: 18,
     fontWeight: "700",
     color: "#0F294A",
-    marginBottom: 12,
+  },
+  assignedBadge: {
+    backgroundColor: "#E0E7FF",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#4338CA",
+  },
+  assignedBadgeText: {
+    color: "#4338CA",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  generalBadge: {
+    backgroundColor: "#DCFCE7",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#16A34A",
+  },
+  generalBadgeText: {
+    color: "#16A34A",
+    fontWeight: "bold",
+    fontSize: 12,
   },
   infoRow: {
     flexDirection: "row",
@@ -313,5 +492,66 @@ const styles = StyleSheet.create({
     marginTop: 50,
     fontSize: 16,
     color: "#777",
+  },
+  activeTripCard: {
+    backgroundColor: "#0F294A",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: "#0F294A",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  activeTripHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  activeTripIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#E31E24",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activeTripTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  activeTripSubtitle: {
+    color: "#CBD5E1",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  activeTripStatusBadge: {
+    backgroundColor: "rgba(227, 30, 36, 0.2)",
+    borderColor: "#E31E24",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  activeTripStatusText: {
+    color: "#FFA4A7",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  continueTripButton: {
+    backgroundColor: "#E31E24",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  continueTripButtonText: {
+    color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });

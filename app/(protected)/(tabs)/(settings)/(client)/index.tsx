@@ -11,7 +11,7 @@ import { useLoading } from "@/context/loadingContext";
 import { updateClientProfile } from "@/services/userService";
 import { Address } from "@/types/users";
 import { isTermsNoticeEnabled, resetAcceptedTerms, setTermsNoticeEnabled } from "@/utils/authStorage";
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import React, { useContext, useEffect, useState } from "react";
 import {
   Image,
@@ -169,7 +169,6 @@ const ClientSettingsMainScreen: React.FC = () => {
   }
 
   const fullName = `${user.names} ${user.lastNames}`;
-  const avatarUri = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
   return (
     <ScrollView
@@ -177,7 +176,9 @@ const ClientSettingsMainScreen: React.FC = () => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: avatarUri }} style={styles.avatar} />
+        <View style={styles.avatarPlaceholder}>
+          <Ionicons name="person" size={48} color={Palette.primary} />
+        </View>
         <Text style={styles.name}>{fullName}</Text>
         <Text style={styles.role}>
           {user.userType === "client" ? "Cliente" : "Conductor"}
@@ -333,6 +334,17 @@ const styles = StyleSheet.create({
     borderRadius: 45,
     marginBottom: 10,
     backgroundColor: "#E5E7EB",
+  },
+  avatarPlaceholder: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    marginBottom: 10,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 2,
+    borderColor: Palette.primary,
+    justifyContent: "center",
+    alignItems: "center",
   },
   name: {
     fontSize: 20,

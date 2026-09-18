@@ -1,5 +1,5 @@
 import CustomPickerModal from "@/components/CustomPickerModal";
-import * as ImagePicker from "expo-image-picker";
+import { pickAndCompressImage } from "@/utils/imageUtils";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -24,36 +24,20 @@ const CreateProductScreen: React.FC = () => {
   const router = useRouter();
 
   const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permiso denegado", "Se requiere acceso a la galería.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+    const result = await pickAndCompressImage({ useCamera: false, maxWidth: 800, quality: 0.7 });
+    if (result.success && result.uri) {
+      setImageUri(result.uri);
+    } else if (result.errorMessage) {
+      Alert.alert("Permiso denegado", result.errorMessage);
     }
   };
 
   const handleTakePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permiso denegado", "Se requiere acceso a la cámara.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+    const result = await pickAndCompressImage({ useCamera: true, maxWidth: 800, quality: 0.7 });
+    if (result.success && result.uri) {
+      setImageUri(result.uri);
+    } else if (result.errorMessage) {
+      Alert.alert("Permiso denegado", result.errorMessage);
     }
   };
 

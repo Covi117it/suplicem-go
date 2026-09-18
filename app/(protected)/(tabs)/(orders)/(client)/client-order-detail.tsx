@@ -5,6 +5,7 @@ import ScreenHeader from "@/components/ScreenHeader";
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { Palette } from "@/constants/theme";
 import { CartContext, Product } from "@/context/cartContext";
+import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { useOrders } from "@/context/orderContext";
 import { getOrderTracking } from "@/services/orderService";
@@ -23,11 +24,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, UrlTile } from "react-native-maps";
 
 const TRACKING_STEPS = ["Pendiente de iniciar", "En camino", "Completado"];
 
 const OrderDetailScreen: React.FC = () => {
+  const { user } = useContext(AuthContext);
   const { orders } = useOrders();
   const { show, hide } = useLoading();
   const { orderId } = useLocalSearchParams();
@@ -63,8 +65,15 @@ const OrderDetailScreen: React.FC = () => {
     try {
       const response = await getOrderTracking(selectedOrder.id);
       if (response?.success && response?.data?.tracking) {
-        const { trip, location } = response.data.tracking;
-        if (trip) setTrip(trip);
+        const { trip: trackingTrip, location, driver } = response.data.tracking;
+        if (trackingTrip) {
+          const mergedTrip = {
+            ...trackingTrip,
+            assignedDriverId: trackingTrip.assignedDriverId || driver?.id,
+            driver: trackingTrip.driver || driver,
+          };
+          setTrip(mergedTrip);
+        }
         if (location) {
           setDriverLocation({
             latitude: location.latitude,
@@ -85,13 +94,12 @@ const OrderDetailScreen: React.FC = () => {
     );
   }
 
-
   const getStepCompleted = (step: string) => {
     const stepIndex = TRACKING_STEPS.indexOf(step);
     const currentIndex = TRACKING_STEPS.indexOf(
       trip?.status === "accepted"
         ? "Pendiente de iniciar"
-        : trip?.status === "started"
+        : trip?.status === "started" || trip?.status === "in_progress"
         ? "En camino"
         : trip?.status === "completed"
         ? "Completado"
@@ -175,6 +183,103 @@ const OrderDetailScreen: React.FC = () => {
           <StatusBadge status={selectedOrder.status} size="small" />
         </InfoRow>
 
+        {Boolean(selectedOrder.userPhone || user?.phone) && (
+          <InfoRow
+            icon="call-outline"
+            label="Teléfono de Contacto"
+            value={selectedOrder.userPhone || user?.phone || "No registrado"}
+          />
+        )}
+
+        <InfoRow
+          icon="cube-outline"
+          label="Tipo de Entrega"
+          value={
+            selectedOrder.deliveryType === "domicilio"
+              ? "Entrega a Domicilio / Obra"
+              : "Retiro en Almacén"
+          }
+        />
+
+        {selectedOrder.deliveryType === "domicilio" &&
+          Boolean(
+            selectedOrder.deliveryAddress ||
+              selectedOrder.deliveries?.[0]?.address
+          ) && (
+            <InfoRow
+              icon="location-outline"
+              label="Dirección de Entrega"
+              value={`${
+                (
+                  selectedOrder.deliveryAddress ||
+                  selectedOrder.deliveries?.[0]?.address
+                )?.description || ""
+              }${
+                (
+                  selectedOrder.deliveryAddress ||
+                  selectedOrder.deliveries?.[0]?.address
+                )?.additionalInfo
+                  ? ", " +
+                    (
+                      selectedOrder.deliveryAddress ||
+                      selectedOrder.deliveries?.[0]?.address
+                    )?.additionalInfo
+                  : ""
+              }`}
+            />
+          )}
+
+        {trip && (
+          <InfoRow icon="car-outline" label="Estado del Viaje">
+            <StatusBadge status={trip.status || "available"} size="small" />
+          </InfoRow>
+        )}
+
+        {/* Banner de Estado del Viaje (Aceptado o En camino) */}
+        {trip?.status === "accepted" && (
+          <View style={styles.acceptedBanner}>
+            <View style={styles.acceptedBannerIcon}>
+              <Ionicons name="checkmark-circle" size={24} color="#2563EB" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.acceptedBannerTitle}>¡Viaje Aceptado por el Conductor!</Text>
+              <Text style={styles.acceptedBannerText}>
+                {trip?.driver?.names
+                  ? `${trip.driver.names} aceptó tu pedido y está preparando la carga para iniciar ruta.`
+                  : "Tu pedido ya fue aceptado por el conductor y se está preparando para salir."}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {(trip?.status === "started" || trip?.status === "in_progress") && (
+          <View
+            style={[
+              styles.acceptedBanner,
+              { backgroundColor: "#EFF6FF", borderColor: "#93C5FD" },
+            ]}
+          >
+            <View
+              style={[
+                styles.acceptedBannerIcon,
+                { backgroundColor: "#DBEAFE" },
+              ]}
+            >
+              <Ionicons name="navigate" size={24} color="#1D4ED8" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.acceptedBannerTitle, { color: "#1E40AF" }]}>
+                ¡Pedido en Camino!
+              </Text>
+              <Text style={[styles.acceptedBannerText, { color: "#1E3A8A" }]}>
+                {trip?.driver?.names
+                  ? `${trip.driver.names} va en camino con tu entrega. Puedes ver su avance en el mapa.`
+                  : "El conductor ha iniciado la ruta de entrega hacia tu dirección."}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Banner de Repetir Pedido */}
         <View style={styles.reorderCard}>
           <View style={styles.reorderHeader}>
@@ -206,7 +311,7 @@ const OrderDetailScreen: React.FC = () => {
           />
         </CheckRender>
 
-        <CheckRender allowed={trip?.assignedDriverId}>
+        <CheckRender allowed={Boolean(trip?.assignedDriverId || trip?.driver)}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🚚 Conductor y Vehículo de Despacho</Text>
             <View style={styles.driverInfoCard}>
@@ -318,12 +423,13 @@ const OrderDetailScreen: React.FC = () => {
       </View>
 
       {driverLocation &&
-        trip?.assignedDriverId &&
-        (trip?.status === "accepted" || trip?.status === "started") && (
+        Boolean(trip?.assignedDriverId || trip?.driver) &&
+        (trip?.status === "accepted" || trip?.status === "started" || trip?.status === "in_progress") && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Ubicación actual del camión</Text>
             <MapView
               style={styles.map}
+              mapType="none"
               initialRegion={{
                 latitude: driverLocation.latitude,
                 longitude: driverLocation.longitude,
@@ -331,7 +437,13 @@ const OrderDetailScreen: React.FC = () => {
                 longitudeDelta: 0.01,
               }}
             >
-              <Marker.Animated
+              <UrlTile
+                urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maximumZ={19}
+                flipY={false}
+                zIndex={-1}
+              />
+              <Marker
                 coordinate={driverLocation}
                 title="Camión"
                 description="Ubicación actual"
@@ -341,7 +453,7 @@ const OrderDetailScreen: React.FC = () => {
                   style={{ width: 40, height: 40 }}
                   resizeMode="contain"
                 />
-              </Marker.Animated>
+              </Marker>
 
               {selectedOrder?.deliveries?.map(
                 (delivery: any, index: number) => {
@@ -590,5 +702,35 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "bold",
     fontSize: 13,
+  },
+  acceptedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 14,
+    gap: 12,
+  },
+  acceptedBannerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  acceptedBannerTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#15803D",
+    marginBottom: 2,
+  },
+  acceptedBannerText: {
+    fontSize: 13,
+    color: "#166534",
+    lineHeight: 18,
   },
 });

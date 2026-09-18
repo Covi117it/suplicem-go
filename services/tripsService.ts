@@ -2,8 +2,13 @@ import { safeRequest } from "./apiSafe";
 import protectedApi from "./protectedApi";
 
 export const getTripAvailable = async () => {
-  const response = await protectedApi.get("/trips/available");
-  return response.data;
+  try {
+    const response = await protectedApi.get("/trips/available");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error al obtener viajes disponibles:", error);
+    return { success: false, trips: [], message: error?.message || "Error al conectar" };
+  }
 };
 
 export const getAllTrips = async () => {
@@ -41,41 +46,25 @@ export const getTripByOrderId = async (orderId: string) => {
 export const createTrip = async (
   tripNumber: string,
   orderIds: string[],
-  totalTons: number,
-  comments: string
+  comments: string,
+  totalTons?: number
 ) => {
-  const response = await protectedApi.post("/trips", {
+  const payload: Record<string, any> = {
     tripNumber,
     orderIds,
-    totalTons,
     comments,
-  });
-  return response.data;
-};
-
-export const createTripWithOrders = async (data: {
-  tripNumber: string;
-  orderIds: string[];
-  driverId?: string;
-  totalTons: number;
-  comments?: string;
-  deliveries?: any[];
-}) => {
-  const result = await safeRequest(() =>
-    protectedApi.post("/trips/create-with-orders", data)
-  );
-  if (result.success && result.data) {
-    return result.data;
-  }
-  return {
-    success: false,
-    message: result.message || "Error al crear el viaje.",
   };
+  if (totalTons !== undefined && totalTons > 0) {
+    payload.totalTons = totalTons;
+  }
+  const response = await protectedApi.post("/trips", payload);
+  return response.data;
 };
 
 export const updateTripStatus = async (tripId: string, status: string) => {
   const result = await safeRequest(() =>
     protectedApi.patch(`/trips/${tripId}/status`, {
+      tripId,
       status,
     })
   );

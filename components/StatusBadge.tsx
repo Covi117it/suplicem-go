@@ -33,6 +33,13 @@ export const getStatusConfig = (status?: string | null): StatusConfig => {
         bg: "rgba(16, 185, 129, 0.12)",
         border: "rgba(16, 185, 129, 0.35)",
       };
+    case "accepted":
+      return {
+        label: "Viaje aceptado",
+        color: "#2563EB",
+        bg: "rgba(37, 99, 235, 0.12)",
+        border: "rgba(37, 99, 235, 0.35)",
+      };
     case "on_the_way":
       return {
         label: "En camino",

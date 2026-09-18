@@ -33,7 +33,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(home)"
         options={{
-          title: "Home",
+          title:
+            authContext?.user?.userType === ROLE.DRIVER
+              ? "Disponibles"
+              : "Home",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),
@@ -44,7 +47,7 @@ export default function TabLayout() {
         options={{
           title:
             authContext?.user?.userType === ROLE.DRIVER
-              ? "Viajes"
+              ? "Historial"
               : authContext?.user?.userType === ROLE.ADMIN
               ? "Verificaciones"
               : "Ordenes",
@@ -53,6 +56,8 @@ export default function TabLayout() {
               name={
                 authContext?.user?.userType === ROLE.ADMIN
                   ? "shield-checkmark-outline"
+                  : authContext?.user?.userType === ROLE.DRIVER
+                  ? "time-outline"
                   : "paper-plane"
               }
               size={28}
@@ -64,7 +69,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(settings)"
         options={{
-          title: "Configuración",
+          title:
+            authContext?.user?.userType === ROLE.DRIVER
+              ? "Cuenta"
+              : "Configuración",
           tabBarIcon: ({ color }) => (
             <Ionicons name="settings" size={28} color={color} />
           ),

@@ -176,7 +176,6 @@ const DriverSettingsMainScreen: React.FC = () => {
   }
 
   const fullName = `${user.names} ${user.lastNames}`;
-  const avatarUri = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
   return (
     <ScrollView
@@ -184,7 +183,9 @@ const DriverSettingsMainScreen: React.FC = () => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: avatarUri }} style={styles.avatar} />
+        <View style={styles.avatarPlaceholder}>
+          <Ionicons name="person" size={54} color="#0F294A" />
+        </View>
         <Text style={styles.name}>{fullName}</Text>
         <Text style={styles.role}>
           {user.userType === "client" ? "Cliente" : "Conductor"}
@@ -224,27 +225,6 @@ const DriverSettingsMainScreen: React.FC = () => {
           />
         )}
       </View>
-
-      <CheckRender allowed={user?.userType === ROLE.CLIENT}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Direcciones</Text>
-          {user.addresses.length > 0 ? (
-            user.addresses.map((address, i) => (
-              <View key={i} style={styles.addressItem}>
-                <Ionicons
-                  name="location-sharp"
-                  size={20}
-                  color="#E31E24"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.addressText}>{address?.description}</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No hay direcciones registradas</Text>
-          )}
-        </View>
-      </CheckRender>
 
       <CheckRender allowed={user?.userType === ROLE.DRIVER}>
         <View style={styles.card}>
@@ -402,6 +382,17 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#E31E24",
     marginBottom: 12,
+  },
+  avatarPlaceholder: {
+    width: 110,
+    height: 110,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: "#E31E24",
+    marginBottom: 12,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
   },
   name: {
     fontSize: 24,

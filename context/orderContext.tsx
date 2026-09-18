@@ -1,31 +1,6 @@
-import { Address } from "@/types/users";
 import React, { createContext, useContext, useState } from "react";
-
-type Order = {
-  userPhone: string;
-  trackingEnabled?: any;
-  id: string;
-  userId: string;
-  userNames?: string;
-  userLastNames?: string;
-  // Se ha agregado la propiedad 'userAddresses' al tipo de la orden
-  userAddresses?: Address[];
-  deliveryType: string;
-  deliveries: any[];
-  items: any[];
-  comments: string;
-  receiptImage?: string;
-  status:
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "requested"
-    | "on_the_way"
-    | "delivered";
-  createdAt: string;
-  orderNumber: string;
-  declineReason?: string;
-};
+import { Order } from "@/types/orders";
+export type { Order };
 
 type OrdersContextType = {
   orders: Order[];

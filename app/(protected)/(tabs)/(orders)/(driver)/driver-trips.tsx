@@ -14,16 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-type Trip = {
-  id: string;
-  tripNumber: string;
-  orderIds: string[];
-  comments: string;
-  totalTons: number;
-  status: string;
-  createdAt: string;
-};
+import { Trip } from "@/types/trips";
 
 type StatusInfo = {
   text: string;
@@ -123,7 +114,7 @@ const DriverTripsScreen: React.FC = () => {
       ?.toLowerCase()
       .includes(searchLower);
     const matchesComments = trip.comments?.toLowerCase().includes(searchLower);
-    const matchesStatus = (statusMap[trip.status]?.text || "Desconocido")
+    const matchesStatus = (statusMap[trip.status || "default"]?.text || "Desconocido")
       .toLowerCase()
       .includes(searchLower);
     const matchesOrderIds = trip.orderIds?.some((id) =>
@@ -169,7 +160,7 @@ const DriverTripsScreen: React.FC = () => {
 
       {filteredTrips.map((trip) => {
         const { text: statusText, color: statusColor } =
-          statusMap[trip.status] || statusMap.default;
+          statusMap[trip.status || "default"] || statusMap.default;
 
         return (
           <TouchableOpacity

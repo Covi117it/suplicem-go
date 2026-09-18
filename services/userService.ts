@@ -53,6 +53,11 @@ export const getUsers = async (params?: {
   return response.data;
 };
 
+export const getUserById = async (uid: string) => {
+  const response = await protectedApi.get(`/users/${uid}`);
+  return response.data;
+};
+
 export const activeOrInactiveUser = async (uid: string, status: string) => {
   const response = await protectedApi.patch("/users/status", {
     uid,

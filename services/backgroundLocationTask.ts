@@ -29,38 +29,51 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK_NAME, async ({ data, error }: any) =
 
 // solicitud de permisos y configuración de la tarea de ubicación en segundo plano
 export async function startBackgroundLocationUpdates(): Promise<boolean> {
-  const { status: foregroundStatus } =
-    await Location.requestForegroundPermissionsAsync();
-  if (foregroundStatus !== "granted") {
+  try {
+    const { status: foregroundStatus } =
+      await Location.requestForegroundPermissionsAsync();
+    if (foregroundStatus !== "granted") {
+      return false;
+    }
+
+    // El permiso de segundo plano puede no estar disponible en Expo Go o emuladores
+    let backgroundStatus = "undetermined";
+    try {
+      const bgResult = await Location.requestBackgroundPermissionsAsync();
+      backgroundStatus = bgResult.status;
+    } catch (bgError) {
+      console.warn("Permiso de segundo plano no soportado en este entorno:", bgError);
+      return false;
+    }
+
+    if (backgroundStatus !== "granted") {
+      return false;
+    }
+
+    const isStarted = await Location.hasStartedLocationUpdatesAsync(
+      DRIVER_LOCATION_TASK_NAME
+    );
+
+    if (!isStarted) {
+      await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 5000,    
+        distanceInterval: 10,  
+        foregroundService: {
+          notificationTitle: "Suplicem Go en ruta",
+          notificationBody: "Transmitiendo ubicación del viaje en tiempo real...",
+          notificationColor: "#E31E24",
+        },
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+      });
+    }
+
+    return true;
+  } catch (err: any) {
+    console.warn("Aviso: No se pudo iniciar el rastreo en segundo plano:", err?.message || err);
     return false;
   }
-
-  const { status: backgroundStatus } =
-    await Location.requestBackgroundPermissionsAsync();
-  if (backgroundStatus !== "granted") {
-    return false;
-  }
-
-  const isStarted = await Location.hasStartedLocationUpdatesAsync(
-    DRIVER_LOCATION_TASK_NAME
-  );
-
-  if (!isStarted) {
-    await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.High,
-      timeInterval: 5000,    
-      distanceInterval: 10,  
-      foregroundService: {
-        notificationTitle: "Suplicem Go en ruta",
-        notificationBody: "Transmitiendo ubicación del viaje en tiempo real...",
-        notificationColor: "#E31E24",
-      },
-      pausesUpdatesAutomatically: false,
-      showsBackgroundLocationIndicator: true,
-    });
-  }
-
-  return true;
 }
 
 

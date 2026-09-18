@@ -33,7 +33,7 @@ const DriverOrderDetailScreen: React.FC = () => {
     longitude: number;
   } | null>(null);
   const router = useRouter();
-  const { trip, saveTrip } = useContext(AcceptedTripContext);
+  const { trip, saveTrip, clearTrip } = useContext(AcceptedTripContext);
   const authContext = useContext(AuthContext);
   const [expandedOrderIndex, setExpandedOrderIndex] = useState<number | null>(null);
   const { show, hide } = useLoading();
@@ -48,6 +48,14 @@ const DriverOrderDetailScreen: React.FC = () => {
     deliveryIndex: number;
   } | null>(null);
 
+  const navigateBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(protected)/(tabs)/(home)/(driver)");
+    }
+  };
+
   useMountEffect(async () => {
     if (trip?.status === "accepted" || trip?.status === "started") {
       startDriverLocationTracking();
@@ -57,37 +65,43 @@ const DriverOrderDetailScreen: React.FC = () => {
   });
 
   const startDriverLocationTracking = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      showAlert({
-        message: "Se necesita acceso a la ubicación.",
-        type: "warning",
-      });
-      return;
-    }
-
     try {
-      await startBackgroundLocationUpdates();
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        console.warn("Permiso de ubicación no concedido para el conductor");
+        return;
+      }
+
+      // Obtener posición inicial inmediata
+      try {
+        const initialLoc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (initialLoc?.coords) {
+          const { latitude, longitude } = initialLoc.coords;
+          setLocation({ latitude, longitude });
+          sendDriverLocation(latitude, longitude).catch(() => {});
+        }
+      } catch (locErr) {
+        console.warn("No se pudo obtener posición inicial inmediata:", locErr);
+      }
+
       await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
           timeInterval: 5000,
           distanceInterval: 10,
         },
         (loc) => {
-          if (authContext?.user?.userType === ROLE.DRIVER) {
+          if (authContext?.user?.userType === ROLE.DRIVER && loc?.coords) {
             const { latitude, longitude } = loc.coords;
             setLocation({ latitude, longitude });
-            sendDriverLocation(latitude, longitude);
+            sendDriverLocation(latitude, longitude).catch(() => {});
           }
         }
       );
-    } catch (error) {
-      console.error(error);
-      showAlert({
-        message: "Error al rastrear la ubicación del conductor.",
-        type: "error",
-      });
+    } catch (error: any) {
+      console.warn("Aviso al rastrear ubicación del conductor:", error?.message || error);
     }
   };
 
@@ -184,6 +198,7 @@ const DriverOrderDetailScreen: React.FC = () => {
           message: response?.message || "Error al completar la entrega.",
           type: "error",
         });
+        setIsDeliveryModalVisible(false);
       }
     } catch (error: any) {
       console.warn("⚠️ Sin conexión: guardando entrega en cola offline...", error?.message || error);
@@ -226,13 +241,12 @@ const DriverOrderDetailScreen: React.FC = () => {
 
       if (response.success) {
         await stopBackgroundLocationUpdates();
-        let updatedTrip = { ...trip, status: "canceled" };
-        saveTrip(updatedTrip);
+        clearTrip();
         showAlert({
           message: "El viaje se ha cancelado correctamente.",
           type: "success",
         });
-        router.back();
+        navigateBack();
       } else {
         showAlert({
           message: "Error: No se pudo cancelar el viaje.",
@@ -285,13 +299,12 @@ const DriverOrderDetailScreen: React.FC = () => {
 
       if (response.success) {
         await stopBackgroundLocationUpdates();
-        let updatedTrip = { ...trip, status: "completed" };
-        saveTrip(updatedTrip);
+        clearTrip();
         showAlert({
           message: response.message || "Viaje completado. Gracias por tu trabajo.",
           type: "success",
         });
-        router.back();
+        navigateBack();
       } else {
         showAlert({
           message: response.message || "Error: No se pudo completar el viaje.",
@@ -332,6 +345,7 @@ const DriverOrderDetailScreen: React.FC = () => {
         title="Detalle del viaje"
         subtitle={`Viaje #${trip?.tripNumber || "N/A"}`}
         showBack={true}
+        onBack={navigateBack}
       />
 
       <View style={styles.section}>

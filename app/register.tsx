@@ -8,8 +8,7 @@ import { RegisterFormData } from "@/types/users";
 import { registerSchema } from "@/validations/registerSchema";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
+import { pickAndCompressImage } from "@/utils/imageUtils";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useContext, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -36,52 +35,18 @@ export default function RegisterScreen() {
   const [identificationImage, setIdentificationImage] = useState<string | null>(null);
 
   const handlePickIdImage = async (useCamera: boolean = false) => {
-    try {
-      const permission = useCamera
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        showAlert({
-          message: "Se requiere permiso para adjuntar la foto del documento",
-          type: "warning",
-        });
-        return;
+    const result = await pickAndCompressImage({ useCamera, maxWidth: 800, quality: 0.5 });
+    if (!result.success) {
+      if (result.errorMessage) {
+        showAlert({ message: result.errorMessage, type: "warning" });
       }
-
-      const result = useCamera
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            quality: 0.5,
-            allowsEditing: true,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            quality: 0.5,
-            allowsEditing: true,
-          });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-
-        // Redimensionar a un máximo de 800px de ancho y comprimir a JPEG ligero
-        const manipResult = await ImageManipulator.manipulateAsync(
-          asset.uri,
-          [{ resize: { width: 800 } }],
-          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
-        );
-
-        setIdentificationImage(manipResult.uri);
-        showAlert({
-          message: "¡Foto de la cédula/identificación adjuntada correctamente!",
-          type: "success",
-        });
-      }
-    } catch (error) {
-      console.error(error);
+      return;
+    }
+    if (result.uri) {
+      setIdentificationImage(result.uri);
       showAlert({
-        message: "No se pudo cargar la imagen",
-        type: "error",
+        message: "¡Foto de la cédula/identificación adjuntada correctamente!",
+        type: "success",
       });
     }
   };

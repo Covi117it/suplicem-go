@@ -7,11 +7,13 @@ import { CartContext } from "@/context/cartContext";
 import { useLoading } from "@/context/loadingContext";
 import { createOrder } from "@/services/orderService";
 import { getBankAccounts } from "@/services/configService";
+import { updateClientProfile } from "@/services/userService";
+import { Address } from "@/types/users";
 import { formatRD } from "@/utils/currencyUtils";
+import { pickAndCompressImage } from "@/utils/imageUtils";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -24,7 +26,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { CartDeliverySection, DeliveryItem } from "@/components/cart/CartDeliverySection";
+import { CartDeliverySection } from "@/components/cart/CartDeliverySection";
 import { CartItemCard } from "@/components/cart/CartItemCard";
 import { CartPaymentSection } from "@/components/cart/CartPaymentSection";
 
@@ -39,13 +41,20 @@ const CartScreen: React.FC = () => {
     deliveryType,
     updateDeliveryType,
   } = useContext(CartContext);
-  const { user } = useContext(AuthContext);
+  const { user, updateUser } = useContext(AuthContext);
   const { show, hide } = useLoading();
   const router = useRouter();
   const { showAlert } = useAlert();
 
-  const [deliveries, setDeliveries] = useState<DeliveryItem[]>([]);
   const [reference, setReference] = useState("");
+
+  // Dirección seleccionada para despacho
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(
+    user?.addresses && user.addresses.length > 0 ? user.addresses[0] : null
+  );
+  const [customAddressText, setCustomAddressText] = useState("");
+  const [customAdditionalInfo, setCustomAdditionalInfo] = useState("");
+  const [saveAddressToProfile, setSaveAddressToProfile] = useState(false);
 
   // Opciones de pago (Transferencia / Crédito)
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "credit">("transfer");
@@ -53,7 +62,29 @@ const CartScreen: React.FC = () => {
   const [selectedBankId, setSelectedBankId] = useState("");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [creditNote, setCreditNote] = useState<string>("");
-  const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState("");
+
+  const groupedCart = useMemo(() => {
+    return cart.reduce<Record<string, any>>((acc, product) => {
+      const key = product.id;
+      if (acc[key]) {
+        acc[key].quantity += 1;
+      } else {
+        acc[key] = {
+          ...product,
+          basePrice: product.price,
+          quantity: 1,
+        };
+      }
+      return acc;
+    }, {});
+  }, [cart]);
+
+  const total = useMemo(() => {
+    return Object.values(groupedCart).reduce((sum, item) => {
+      const fundas = item.fundas || 1;
+      return sum + fundas * item.basePrice * item.quantity;
+    }, 0);
+  }, [groupedCart]);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -80,117 +111,72 @@ const CartScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      setDeliveries([]);
-      setSelectedDeliveryAddress("");
       setReference("");
       setPaymentMethod("transfer");
       setReceiptImage(null);
       setCreditNote("");
+      setSaveAddressToProfile(false);
       fetchAccounts();
+
+      // Preseleccionar dirección registrada por defecto si está disponible y no se ha elegido ninguna
+      if (user?.addresses && user.addresses.length > 0) {
+        setSelectedAddress((current) => current || user.addresses[0]);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchAccounts])
   );
 
-    const selectedBank = bankAccountsList.find((b) => b.id === selectedBankId) || bankAccountsList[0];
+  const selectedBank = bankAccountsList.find((b) => b.id === selectedBankId) || bankAccountsList[0];
 
-  const handleSelectDeliveryAddress = (addressDesc: string) => {
-    setSelectedDeliveryAddress(addressDesc);
-    if (!addressDesc) {
-      setDeliveries([]);
-      return;
-    }
-    const fullAddress = user?.addresses?.find(
-      (addr) => addr?.description === addressDesc
-    );
-    if (!fullAddress) {
-      setDeliveries([]);
-      return;
-    }
-
-    const allProducts = Object.values(groupedCart).map((item) => ({
-      id: item.id,
-      fundas: item.fundas || 1000,
-    }));
-
-    setDeliveries([
-      {
-        address: fullAddress,
-        products: allProducts,
-      },
-    ]);
+  const handleSelectAddress = (address: Address) => {
+    setSelectedAddress(address);
   };
 
-  const addressOptions =
-    user?.addresses?.map((addr) => ({
-      label: `${addr?.description}${addr?.additionalInfo ? ", " + addr.additionalInfo : ""}`,
-      value: addr?.description,
-    })) || [];
-
-  const groupedCart = cart.reduce<Record<string, any>>((acc, product) => {
-    const key = product.id;
-    if (acc[key]) {
-      acc[key].quantity += 1;
-    } else {
-      acc[key] = {
-        ...product,
-        basePrice: product.price,
-        quantity: 1,
+  const handleCustomPlaceSelected = (place: any) => {
+    if (place?.description) {
+      setCustomAddressText(place.description);
+      const newAddr: Address = {
+        placeId: place.placeId || `custom-${Date.now()}`,
+        description: place.description,
+        latitude: place.latitude || 18.4861,
+        longitude: place.longitude || -69.9312,
+        additionalInfo: customAdditionalInfo.trim(),
       };
+      setSelectedAddress(newAddr);
     }
-    return acc;
-  }, {});
+  };
 
-  const total = Object.values(groupedCart).reduce((sum, item) => {
-    const fundas = item.fundas || 1;
-    return sum + fundas * item.basePrice * item.quantity;
-  }, 0);
-
-  const handlePickReceipt = async (useCamera = false) => {
-    try {
-      const perm = useCamera
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!perm.granted) {
-        showAlert({
-          message:
-            "Se requiere permiso para acceder a la " +
-            (useCamera ? "cámara" : "galería de fotos"),
-          type: "warning",
-        });
-        return;
-      }
-
-      const result = useCamera
-        ? await ImagePicker.launchCameraAsync({
-            quality: 0.5,
-            base64: true,
-            allowsEditing: true,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ["images"],
-            quality: 0.5,
-            base64: true,
-            allowsEditing: true,
-          });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-        const imageString = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
-        setReceiptImage(imageString);
-        showAlert({
-          message: "¡Foto del comprobante adjuntada correctamente!",
-          type: "success",
-        });
-      }
-    } catch (error) {
-      console.error("Error al seleccionar imagen:", error);
-      showAlert({
-        message: "No se pudo seleccionar la imagen",
-        type: "error",
+  const handleCustomAdditionalInfoChange = (text: string) => {
+    setCustomAdditionalInfo(text);
+    if (selectedAddress) {
+      setSelectedAddress({
+        ...selectedAddress,
+        additionalInfo: text.trim(),
       });
     }
+  };
+
+  const handlePickReceipt = async (useCamera = false) => {
+    const result = await pickAndCompressImage({
+      useCamera,
+      maxWidth: 800,
+      quality: 0.5,
+      includeBase64: true,
+    });
+    if (!result.success) {
+      if (result.errorMessage) {
+        showAlert({ message: result.errorMessage, type: "warning" });
+      }
+      return;
+    }
+    const imageString = result.base64
+      ? (result.base64.startsWith("data:") ? result.base64 : `data:image/jpeg;base64,${result.base64}`)
+      : result.uri || null;
+    setReceiptImage(imageString);
+    showAlert({
+      message: "¡Foto del comprobante adjuntada correctamente!",
+      type: "success",
+    });
   };
 
   const handleRemoveReceipt = () => {
@@ -205,35 +191,56 @@ const CartScreen: React.FC = () => {
       });
       return;
     }
-    if (deliveryType === "domicilio" && deliveries.length === 0) {
-      showAlert({
-        message: "Debes asignar al menos una entrega",
-        type: "error",
-      });
-      return;
+
+    if (deliveryType === "domicilio") {
+      if (!selectedAddress || !selectedAddress.description?.trim()) {
+        showAlert({
+          message: "Por favor, selecciona o ingresa una dirección de entrega para tu pedido.",
+          type: "warning",
+        });
+        return;
+      }
     }
 
     show();
 
+    // Guardar en el perfil si el cliente activó la casilla de verificación
+    if (saveAddressToProfile && selectedAddress && user) {
+      try {
+        const existing = user.addresses || [];
+        const isDuplicate = existing.some(
+          (a) =>
+            a.description.trim().toLowerCase() ===
+            selectedAddress.description.trim().toLowerCase()
+        );
+        if (!isDuplicate) {
+          const updatedAddresses = [...existing, selectedAddress];
+          await updateClientProfile(user.uid, user.phone, updatedAddresses);
+          updateUser({ addresses: updatedAddresses });
+        }
+      } catch (e) {
+        console.warn("No se pudo guardar la dirección en el perfil:", e);
+      }
+    }
+
     const formattedDeliveries =
-      deliveryType === "domicilio"
-        ? deliveries.flatMap((d) =>
-            d.products.map((p) => ({
-              productId: p.id,
-              address: d.address,
-              quantity: p.fundas,
-              unit: "fundas",
-            }))
-          )
+      deliveryType === "domicilio" && selectedAddress
+        ? Object.values(groupedCart).map((item) => ({
+            productId: item.id,
+            address: selectedAddress,
+            quantity: Number(item.fundas) || 100,
+            unit: "fundas",
+          }))
         : [];
 
     const formattedItems = Object.values(groupedCart).map((item) => ({
-    productId: item.id,
-    quantity: item.fundas || 1,
+      productId: item.id,
+      quantity: Number(item.fundas) || 100,
     }));
 
     const dataToSend: any = {
       deliveryType,
+      deliveryAddress: deliveryType === "domicilio" ? selectedAddress : undefined,
       deliveries: formattedDeliveries,
       items: formattedItems,
       paymentMethod,
@@ -316,29 +323,18 @@ const CartScreen: React.FC = () => {
           {cart.length > 0 && (
             <View style={styles.footer}>
               <CartDeliverySection
-                deliveryType={deliveryType}
+                deliveryType={deliveryType as "domicilio" | "almacen"}
                 onUpdateDeliveryType={updateDeliveryType}
-                selectedDeliveryAddress={selectedDeliveryAddress}
-                onSelectDeliveryAddress={handleSelectDeliveryAddress}
-                addressOptions={addressOptions}
-                deliveries={deliveries}
-                onCustomPlaceSelected={(place) => {
-                  if (place?.description) {
-                    setDeliveries([
-                      {
-                        address: {
-                          placeId: place.placeId || `custom-${Date.now()}`,
-                          description: place.description,
-                          latitude: place.latitude,
-                          longitude: place.longitude,
-                          additionalInfo: "",
-                        },
-                        products: [],
-                      },
-                    ]);
-                    setSelectedDeliveryAddress(place.description);
-                  }
-                }}
+                userAddresses={user?.addresses || []}
+                selectedAddress={selectedAddress}
+                onSelectAddress={handleSelectAddress}
+                customAddressText={customAddressText}
+                onChangeCustomAddressText={setCustomAddressText}
+                customAdditionalInfo={customAdditionalInfo}
+                onChangeCustomAdditionalInfo={handleCustomAdditionalInfoChange}
+                onCustomPlaceSelected={handleCustomPlaceSelected}
+                saveAddressToProfile={saveAddressToProfile}
+                onToggleSaveAddress={setSaveAddressToProfile}
               />
 
               <CartPaymentSection

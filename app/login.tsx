@@ -124,7 +124,10 @@ const LoginScreen = () => {
       } else {
         Alert.alert("Error", "");
         showAlert({
-          message: "Usuario no encontrado",
+          message:
+            responseUser?.message ||
+            responseUser?.data?.message ||
+            "No se pudo cargar la información del usuario",
           type: "error",
         });
       }

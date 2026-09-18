@@ -25,10 +25,6 @@ export default function ClientSettingsLayout() {
         options={{ title: "Crear producto", headerShown: false }}
       />
       <Stack.Screen
-        name="create-trip"
-        options={{ title: "Crear viaje", headerShown: false }}
-      />
-      <Stack.Screen
         name="products-screen"
         options={{ title: "lista  de productos", headerShown: false }}
       />
