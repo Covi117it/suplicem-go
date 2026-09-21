@@ -2,7 +2,7 @@ import AddressPicker from "@/components/AddressPicker";
 import CustomPickerModal from "@/components/CustomPickerModal";
 import { useAlert } from "@/context/alertContext";
 import { useLoading } from "@/context/loadingContext";
-import { createUserAccount } from "@/services/userService";
+import { createUserAccountByAdmin } from "@/services/userService";
 import React, { useState } from "react";
 import {
   ScrollView,
@@ -49,7 +49,7 @@ const CreateUserScreen: React.FC = () => {
 
     try {
       show();
-      const res = await createUserAccount(payload);
+      const res = await createUserAccountByAdmin(payload);
       if (res?.success) {
         showAlert({
           message: "¡Usuario registrado y actualizado con éxito en la base de datos del servidor!",

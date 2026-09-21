@@ -42,3 +42,7 @@ google-services.json
 *.tsbuildinfo
 
 app-example
+
+# AI Agent memory & rules
+GEMINI.md
+gemini.md

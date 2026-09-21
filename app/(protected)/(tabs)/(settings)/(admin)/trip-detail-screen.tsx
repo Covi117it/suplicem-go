@@ -32,6 +32,34 @@ const TripDetailScreen: React.FC = () => {
     null
   );
 
+  const refreshDriverLocationAndTripStatus = useCallback(async () => {
+    if (!trip?.id) return;
+    const tripResponse = await getTripDetail(trip.id);
+    console.log("tripResponse", tripResponse);
+
+    if (tripResponse?.success && tripResponse?.trip) {
+      saveTrip(tripResponse.trip);
+      if (
+        tripResponse.trip.status === "accepted" ||
+        tripResponse.trip.status === "started"
+      ) {
+        const driverLocationResponse = await getDriverLocation(
+          tripResponse.trip.assignedDriverId
+        );
+        console.log("driverLocationResponse", driverLocationResponse);
+        if (
+          driverLocationResponse?.success &&
+          driverLocationResponse?.location
+        ) {
+          setDriverLocation({
+            latitude: driverLocationResponse.location.lat,
+            longitude: driverLocationResponse.location.lng,
+          });
+        }
+      }
+    }
+  }, [trip?.id, saveTrip]);
+
   useFocusEffect(
     useCallback(() => {
       show();
@@ -44,38 +72,8 @@ const TripDetailScreen: React.FC = () => {
 
       // Limpieza al perder el foco
       return () => clearInterval(interval);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [trip?.id])
+    }, [refreshDriverLocationAndTripStatus, show, hide])
   );
-
-  const refreshDriverLocationAndTripStatus = async () => {
-    const tripResponse = await getTripDetail(trip?.id!);
-    console.log("tripResponse");
-    console.log(tripResponse);
-
-    if (tripResponse?.success && tripResponse?.trip) {
-      saveTrip(tripResponse?.trip);
-      if (
-        tripResponse?.trip?.status === "accepted" ||
-        tripResponse?.trip?.status === "started"
-      ) {
-        const driverLocationResponse = await getDriverLocation(
-          tripResponse?.trip?.assignedDriverId
-        );
-        console.log("driverLocationResponse");
-        console.log(driverLocationResponse);
-        if (
-          driverLocationResponse?.success &&
-          driverLocationResponse?.location
-        ) {
-          setDriverLocation({
-            latitude: driverLocationResponse?.location?.lat,
-            longitude: driverLocationResponse?.location?.lng,
-          });
-        }
-      }
-    }
-  };
 
   const getStepCompleted = (step: string) => {
     const stepIndex = TRACKING_STEPS.indexOf(step);
