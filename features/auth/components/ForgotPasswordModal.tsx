@@ -87,22 +87,24 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   modalButton: {
-    backgroundColor: "#0F294A",
+    backgroundColor: "#E31E24",
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 5,
+    borderRadius: 4,
     marginBottom: 10,
     width: "100%",
     alignItems: "center",
   },
   modalButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "600",
   },
   modalCancelText: {
     color: "#0F294A",
     fontSize: 14,
     marginTop: 5,
+    textAlign: "center",
+    textDecorationLine: "underline",
   },
 });
