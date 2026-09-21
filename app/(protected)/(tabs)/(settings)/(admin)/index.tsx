@@ -76,6 +76,14 @@ const AdminSettingsMainScreen: React.FC = () => {
         <Text style={styles.buttonText}>Gestión de Viajes</Text>
       </TouchableOpacity>
 
+        <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push("/create-user")}
+      >
+        <Ionicons name="person-add-outline" size={24} color="#fff" />
+        <Text style={styles.buttonText}>Crear Usuario</Text>
+      </TouchableOpacity>
+
       <View style={{ marginTop: 30 }}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={22} color="#E31E24" />
