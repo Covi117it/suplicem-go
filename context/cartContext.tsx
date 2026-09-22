@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, PropsWithChildren, useEffect, useState } from "react";
+import { createContext, PropsWithChildren, useContext, useEffect, useState } from "react";
 import { useAlert } from "./alertContext";
+import { AuthContext } from "./authContext";
 
 export type Product = {
   id: string;
@@ -23,7 +24,7 @@ type CartState = {
   setCartItems: (items: Product[], type?: DeliveryType) => void;
 };
 
-const cartStorageKey = "cart-key";
+const getCartStorageKey = (uid?: string) => (uid ? `cart-key-${uid}` : "cart-key-guest");
 
 export const CartContext = createContext<CartState>({
   cart: [],
@@ -37,35 +38,42 @@ export const CartContext = createContext<CartState>({
 });
 
 export const CartProvider = ({ children }: PropsWithChildren) => {
+  const { user } = useContext(AuthContext);
   const [cart, setCart] = useState<Product[]>([]);
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("domicilio");
-
 
   const { showAlert } = useAlert();
 
   useEffect(() => {
     const loadCart = async () => {
       try {
-        const value = await AsyncStorage.getItem(cartStorageKey);
+        const key = getCartStorageKey(user?.uid);
+        const value = await AsyncStorage.getItem(key);
         if (value) {
           const parsed = JSON.parse(value);
           setCart(parsed.cart || []);
           setDeliveryType(parsed.deliveryType || "almacen");
+        } else {
+          setCart([]);
+          setDeliveryType("almacen");
         }
       } catch (error) {
         console.error("❌ Error cargando el carrito:", error);
+        setCart([]);
       }
     };
     loadCart();
-  }, []);
+  }, [user?.uid]);
 
   const saveCart = async (
     updatedCart: Product[],
     updatedType: DeliveryType
   ) => {
     try {
+
+      const key = getCartStorageKey(user?.uid);
       await AsyncStorage.setItem(
-        cartStorageKey,
+        key,
         JSON.stringify({ cart: updatedCart, deliveryType: updatedType })
       );
     } catch (error) {
@@ -104,7 +112,8 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
   const clearCart = () => {
     setCart([]);
     setDeliveryType("almacen");
-    AsyncStorage.removeItem(cartStorageKey);
+    const key = getCartStorageKey(user?.uid);
+    AsyncStorage.removeItem(key);
   };
 
   const updateProductInCart = (

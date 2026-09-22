@@ -46,3 +46,16 @@ app-example
 # AI Agent memory & rules
 GEMINI.md
 gemini.md
+
+# Tests & Coverage
+test/
+tests/
+__tests__/
+*.test.ts
+*.test.tsx
+*.test.js
+*.spec.ts
+*.spec.tsx
+*.spec.js
+coverage/
+

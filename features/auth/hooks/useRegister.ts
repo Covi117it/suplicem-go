@@ -100,6 +100,14 @@ export const useRegister = () => {
       identificationImage,
     };
 
+    if (payload.userType !== "driver") {
+      delete payload.vehicle;
+    }
+    if (payload.userType === "driver" && (!payload.addresses || payload.addresses.length === 0)) {
+      delete payload.addresses;
+    }
+    delete payload.confirmPassword;
+
     show();
     try {
       const responseRegister = await createUserAccount(payload);
@@ -126,12 +134,16 @@ export const useRegister = () => {
         });
         router.replace("/pending-approval");
       } else {
-        const errorMsg =
-          responseRegister?.message ||
-          (responseRegister?.data as any)?.error ||
-          "No se pudo completar el registro.";
+        const errorList = responseRegister?.data?.errors;
+        let errorMsg = responseRegister?.message;
+        if (Array.isArray(errorList) && errorList.length > 0) {
+          errorMsg = errorList.map((err: any) => `${err.field}: ${err.message}`).join("\n");
+        }
         showAlert({
-          message: errorMsg,
+          message:
+            errorMsg ||
+            (responseRegister?.data as any)?.error ||
+            "No se pudo completar el registro.",
           type: "error",
         });
       }
