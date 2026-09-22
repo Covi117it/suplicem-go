@@ -60,6 +60,7 @@ export const CartPaymentSection: React.FC<CartPaymentSectionProps> = ({
               styles.paymentOptionText,
               paymentMethod === "transfer" && styles.paymentOptionTextActive,
             ]}
+            numberOfLines={2}
           >
             Transferencia / Comprobante
           </Text>
@@ -82,6 +83,7 @@ export const CartPaymentSection: React.FC<CartPaymentSectionProps> = ({
               styles.paymentOptionText,
               paymentMethod === "credit" && styles.paymentOptionTextActive,
             ]}
+            numberOfLines={2}
           >
             Pago a Crédito
           </Text>
@@ -257,9 +259,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 8,
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: Palette.accent,
@@ -272,6 +274,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: Palette.accent,
+    flexShrink: 1,
   },
   paymentOptionTextActive: {
     color: "#fff",
