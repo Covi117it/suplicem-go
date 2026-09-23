@@ -5,14 +5,10 @@ import { Palette } from "@/constants/theme";
 
 type LegalSectionCardProps = {
   onOpenTerms: () => void;
-  onToggleNotice: () => void;
-  termsNoticeEnabled: boolean;
 };
 
 export const LegalSectionCard: React.FC<LegalSectionCardProps> = ({
   onOpenTerms,
-  onToggleNotice,
-  termsNoticeEnabled,
 }) => {
   return (
     <View style={styles.cardSharp}>
@@ -27,46 +23,6 @@ export const LegalSectionCard: React.FC<LegalSectionCardProps> = ({
           <Text style={styles.termsOptionText}>Términos y Condiciones de Uso</Text>
         </View>
         <Ionicons name="chevron-forward-outline" size={20} color="#666" />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[
-          styles.termsOptionRow,
-          {
-            marginTop: 8,
-            paddingTop: 12,
-            borderTopWidth: 1,
-            borderTopColor: "#f0f0f0",
-          },
-        ]}
-        onPress={onToggleNotice}
-        activeOpacity={0.7}
-      >
-        <View style={styles.termsOptionLeft}>
-          <Ionicons
-            name={termsNoticeEnabled ? "checkbox-outline" : "square-outline"}
-            size={22}
-            color={termsNoticeEnabled ? Palette.primary : "#666"}
-          />
-          <Text style={styles.termsOptionText}>
-            Aviso al Login: {termsNoticeEnabled ? "Habilitado" : "Deshabilitado"}
-          </Text>
-        </View>
-        <View
-          style={[
-            styles.toggleBadge,
-            { backgroundColor: termsNoticeEnabled ? "#ffebee" : "#f1f5f9" },
-          ]}
-        >
-          <Text
-            style={[
-              styles.toggleBadgeText,
-              { color: termsNoticeEnabled ? Palette.primary : "#475569" },
-            ]}
-          >
-            {termsNoticeEnabled ? "Deshabilitar" : "Habilitar"}
-          </Text>
-        </View>
       </TouchableOpacity>
     </View>
   );
@@ -110,14 +66,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     fontWeight: "500",
-  },
-  toggleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  toggleBadgeText: {
-    fontSize: 12,
-    fontWeight: "bold",
   },
 });

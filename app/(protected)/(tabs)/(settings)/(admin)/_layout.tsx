@@ -36,6 +36,10 @@ export default function ClientSettingsLayout() {
         name="trip-detail-screen"
         options={{ title: "lista  de  viajes", headerShown: false }}
       />
+      <Stack.Screen
+        name="user-detail"
+        options={{ title: "Detalle de Usuario", headerShown: false }}
+      />
     </Stack>
   );
 }

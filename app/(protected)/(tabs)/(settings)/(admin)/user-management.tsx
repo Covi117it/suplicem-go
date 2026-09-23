@@ -5,6 +5,7 @@ import { activeOrInactiveUser, getUsers } from "@/services/userService";
 import { StatusBadge } from "@/components/StatusBadge";
 import { FilterChips, FilterOption } from "@/components/FilterChips";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState, useMemo } from "react";
 import {
   Alert,
@@ -30,12 +31,23 @@ const STATUS_OPTIONS: FilterOption<"all" | "active" | "inactive">[] = [
 ];
 
 const UsersListScreen: React.FC = () => {
-   const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "client" | "driver" | "admin">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
+  const router = useRouter();
+
+  const handleSelectUser = (user: any) => {
+    router.push({
+      pathname: "/user-detail",
+      params: {
+        userId: user.uid,
+        userParam: JSON.stringify(user),
+      },
+    });
+  };
 
   const sortUsers = (usersArray: any[]) => {
     // Clona el array para no mutar el estado original directamente
@@ -148,25 +160,39 @@ const UsersListScreen: React.FC = () => {
   };
 
   const roleCounts = useMemo(() => {
-    const counts = { all: users.length, client: 0, driver: 0, admin: 0 };
-    users.forEach((u) => {
+    // Filtramos según el estado seleccionado
+    const relevantUsers = statusFilter === "all"
+      ? users
+      : users.filter((u) => {
+          const st = u.status?.toLowerCase();
+          if (statusFilter === "active") return st === "active";
+          if (statusFilter === "inactive") return st === "inactive" || st === "pending";
+          return true;
+        });
+
+    const counts = { all: relevantUsers.length, client: 0, driver: 0, admin: 0 };
+    relevantUsers.forEach((u) => {
       const role = u.userType?.toLowerCase();
       if (role === "client") counts.client++;
       else if (role === "driver") counts.driver++;
       else if (role === "admin") counts.admin++;
     });
     return counts;
-  }, [users]);
+  }, [users, statusFilter]);
 
   const statusCounts = useMemo(() => {
-    const counts = { all: users.length, active: 0, inactive: 0 };
-    users.forEach((u) => {
+    // Filtramos según el rol seleccionado 
+    const relevantUsers = roleFilter === "all"
+      ? users
+      : users.filter((u) => u.userType?.toLowerCase() === roleFilter);
+    const counts = { all: relevantUsers.length, active: 0, inactive: 0 };
+    relevantUsers.forEach((u) => {
       const st = u.status?.toLowerCase();
       if (st === "active") counts.active++;
       else if (st === "inactive" || st === "pending") counts.inactive++;
     });
     return counts;
-  }, [users]);
+  }, [users, roleFilter])
 
   const filteredUsers = useMemo(() => {
     return sortUsers(
@@ -239,13 +265,12 @@ const UsersListScreen: React.FC = () => {
         counts={roleCounts}
       />
 
-      {/* Filtro por Estado */}
+     {/* Filtro por Estado */}
       <FilterChips
         options={STATUS_OPTIONS}
         activeFilter={statusFilter}
         onSelectFilter={setStatusFilter}
         counts={statusCounts}
-        activeColor="#0F294A"
       />
 
       {filteredUsers.length === 0 && (
@@ -258,7 +283,12 @@ const UsersListScreen: React.FC = () => {
       )}
 
       {filteredUsers.map((user) => (
-        <View key={user.uid} style={styles.userCard}>
+        <TouchableOpacity
+          key={user.uid}
+          style={styles.userCard}
+          onPress={() => handleSelectUser(user)}
+          activeOpacity={0.7}
+        >
           <View style={styles.userHeader}>
             <Ionicons name="person-circle-outline" size={32} color="#E31E24" />
             <View style={{ flex: 1, marginLeft: 10 }}>
@@ -268,6 +298,12 @@ const UsersListScreen: React.FC = () => {
               <Text style={styles.userEmail}>{user.email}</Text>
             </View>
             <StatusBadge status={user.status} size="small" />
+            <Ionicons
+              name="chevron-forward-outline"
+              size={18}
+              color="#94A3B8"
+              style={{ marginLeft: 6 }}
+            />
           </View>
 
           <View style={styles.userDetailRow}>
@@ -320,7 +356,7 @@ const UsersListScreen: React.FC = () => {
               <Text style={styles.buttonText}>Inactivar</Text>
             </TouchableOpacity>
           ) : null}
-        </View>
+        </TouchableOpacity>
       ))}
     </ScrollView>
   );

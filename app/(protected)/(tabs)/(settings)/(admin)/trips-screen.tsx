@@ -3,8 +3,9 @@ import { AcceptedTripContext } from "@/context/TripContext";
 import { getAllTrips, getTripDetail } from "@/services/tripsService";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
 import { useAlert } from "@/context/alertContext";
+import { FilterChips, FilterOption } from "@/components/FilterChips";
 import {
   Alert,
   ScrollView,
@@ -29,6 +30,14 @@ type StatusInfo = {
   text: string;
   color: string;
 };
+
+const TRIP_FILTER_OPTIONS: FilterOption<string>[] = [
+  { id: "Todos", label: "Todos" },
+  { id: "available", label: "Pendientes" },
+  { id: "accepted", label: "Aceptados" },
+  { id: "completed", label: "Finalizados" },
+  { id: "canceled", label: "Cancelados" },
+];
 
 const TripsScreen: React.FC = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -71,10 +80,27 @@ const TripsScreen: React.FC = () => {
     default: { text: "Desconocido", color: "#9E9E9E" },
   };
 
-  const filteredTrips = trips.filter((trip) => {
-    const statusInfo =
-      statusTranslation[trip.status ?? ""] || statusTranslation.default;
+  const tripCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      Todos: trips.length,
+      available: 0,
+      accepted: 0,
+      completed: 0,
+      canceled: 0,
+    };
+    trips.forEach((t) => {
+      let status = t.status || "default";
+      if (status === "started" || status === "in_progress") {
+        status = "accepted";
+      }
+      if (counts[status] !== undefined) {
+        counts[status] = (counts[status] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [trips]);
 
+  const filteredTrips = trips.filter((trip) => {
     const matchesSearch =
       trip.tripNumber?.toLowerCase().includes(search.toLowerCase()) ||
       trip.comments?.toLowerCase().includes(search.toLowerCase()) ||
@@ -83,7 +109,10 @@ const TripsScreen: React.FC = () => {
       );
 
     const matchesStatus =
-      statusFilter === "Todos" || statusInfo.text === statusFilter;
+      statusFilter === "Todos" ||
+      trip.status === statusFilter ||
+      (statusFilter === "accepted" &&
+        (trip.status === "started" || trip.status === "in_progress"));
 
     return matchesSearch && matchesStatus;
   });
@@ -130,34 +159,13 @@ const TripsScreen: React.FC = () => {
         onChangeText={setSearch}
       />
 
-      <View style={styles.filterContainer}>
-        {[
-          "Todos",
-          "Pendiente",
-          "Aceptado",
-          "Rechazado",
-          "Iniciado",
-          "Finalizado",
-        ].map((status) => (
-          <TouchableOpacity
-            key={status}
-            style={[
-              styles.filterButton,
-              statusFilter === status && styles.filterButtonActive,
-            ]}
-            onPress={() => setStatusFilter(status)}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                statusFilter === status && { color: "#fff" },
-              ]}
-            >
-              {status}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <FilterChips
+        options={TRIP_FILTER_OPTIONS}
+        activeFilter={statusFilter}
+        onSelectFilter={setStatusFilter}
+        counts={tripCounts}
+        style={{ marginBottom: 16 }}
+      />
 
       {filteredTrips?.map((trip) => {
         const statusInfo =
@@ -226,28 +234,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
     backgroundColor: "#FAFAFA",
-  },
-  filterContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: 16,
-    gap: 8,
-  },
-  filterButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderColor: "#E31E24",
-    borderWidth: 1,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  filterButtonActive: {
-    backgroundColor: "#E31E24",
-  },
-  filterButtonText: {
-    color: "#E31E24",
-    fontWeight: "600",
   },
   tripCard: {
     backgroundColor: "#fff",
