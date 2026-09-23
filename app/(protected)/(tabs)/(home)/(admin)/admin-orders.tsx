@@ -35,7 +35,7 @@ const ORDER_FILTER_OPTIONS: FilterOption<string>[] = [
   { id: "Alertas IA", label: "⚠️ Alertas IA" },
   { id: "approved", label: "Aprobadas" },
   { id: "on_the_way", label: "En camino" },
-  { id: "delivered", label: "Entregadas" },
+  { id: "completed", label: "Entregadas" },
   { id: "rejected", label: "Rechazadas" },
 ];
 
