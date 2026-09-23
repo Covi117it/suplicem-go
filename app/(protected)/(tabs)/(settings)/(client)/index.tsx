@@ -1,8 +1,8 @@
 import CheckRender from "@/components/CheckRender";
 import ConfirmationModal from "@/components/ConfirmationModal";
-import LegalSectionCard from "@/components/profile/LegalSectionCard";
-import ProfileAddressesCard from "@/components/profile/ProfileAddressesCard";
-import TermsAndConditionsModal from "@/components/profile/TermsAndConditionsModal";
+import { LegalSectionCard } from "@/components/profile/LegalSectionCard";
+import { ProfileAddressesCard } from "@/components/profile/ProfileAddressesCard";
+import { TermsAndConditionsModal } from "@/components/profile/TermsAndConditionsModal";
 import { ROLE } from "@/constants/UserConstants";
 import { Palette } from "@/constants/theme";
 import { useAlert } from "@/context/alertContext";
@@ -10,11 +10,9 @@ import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { updateClientProfile } from "@/services/userService";
 import { Address } from "@/types/users";
-import { isTermsNoticeEnabled, resetAcceptedTerms, setTermsNoticeEnabled } from "@/utils/authStorage";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useState } from "react";
 import {
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -79,37 +77,19 @@ const ClientSettingsMainScreen: React.FC = () => {
 
   const [phone, setPhone] = useState(user?.phone || "");
   const [addresses, setAddresses] = useState<Address[]>(user?.addresses || []);
-  const [termsNoticeEnabledState, setTermsNoticeEnabledState] = useState(true);
+  const [prevUserId, setPrevUserId] = useState<string | null>(user?.uid || null);
 
-  useEffect(() => {
-    if (user?.uid) {
-      setPhone(user.phone || "");
-      setAddresses(user.addresses || []);
-      isTermsNoticeEnabled(user.uid).then(setTermsNoticeEnabledState);
-    }
-  }, [user]);
-
-  const toggleTermsNotice = async () => {
-    if (!user?.uid) return;
-    const newState = !termsNoticeEnabledState;
-    await setTermsNoticeEnabled(user.uid, newState);
-    setTermsNoticeEnabledState(newState);
-    showAlert({
-      message: newState
-        ? "¡Aviso habilitado! Se solicitará aceptación de Términos al iniciar sesión."
-        : "¡Aviso deshabilitado! El aviso de Términos no se mostrará al iniciar sesión.",
-      type: "info",
-    });
-  };
+  if (user?.uid && user.uid !== prevUserId) {
+    setPrevUserId(user.uid);
+    setPhone(user.phone || "");
+    setAddresses(user.addresses || []);
+  }
 
   const handleLogout = () => {
     setIsLogoutModalVisible(true);
   };
 
-  const confirmLogout = async () => {
-    if (user?.uid) {
-      await resetAcceptedTerms(user.uid);
-    }
+  const confirmLogout = () => {
     setIsLogoutModalVisible(false);
     logOut();
   };
@@ -257,8 +237,6 @@ const ClientSettingsMainScreen: React.FC = () => {
 
       <LegalSectionCard
         onOpenTerms={() => setIsTermsModalVisible(true)}
-        onToggleNotice={toggleTermsNotice}
-        termsNoticeEnabled={termsNoticeEnabledState}
       />
 
       {isEditing && (
