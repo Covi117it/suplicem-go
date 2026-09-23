@@ -26,7 +26,7 @@ const ORDER_FILTER_OPTIONS: FilterOption<string>[] = [
   { id: "Alertas IA", label: "⚠️ Alertas IA" },
   { id: "approved", label: "Aprobadas" },
   { id: "on_the_way", label: "En camino" },
-  { id: "delivered", label: "Entregadas" },
+  { id: "completed", label: "Entregadas" },
   { id: "rejected", label: "Rechazadas" },
 ];
 
@@ -215,9 +215,9 @@ const AdminOrdersScreen = () => {
                 </TouchableOpacity>
               </View>
 
-              {order.status === "rejected" && order.declineReason && (
+                {order.status === "rejected" && Boolean(order.rejectionReason || order.declineReason) && (
                 <Text style={styles.reasonText}>
-                  Motivo: {order.declineReason}
+                  Motivo: {order.rejectionReason || order.declineReason}
                 </Text>
               )}
             </TouchableOpacity>

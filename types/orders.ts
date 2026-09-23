@@ -9,6 +9,7 @@ export type OrderStatus =
   | "delivered"
   | "accepted"
   | "in_progress"
+  | "completed"
   | "canceled";
 
 export interface DeliveryDetail {

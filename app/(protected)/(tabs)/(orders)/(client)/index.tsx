@@ -333,6 +333,14 @@ const ClientOrdersMainScreen: React.FC = () => {
                 <StatusBadge status={order.status} size="small" />
               </InfoRow>
 
+              {order.status === "rejected" && Boolean(order.rejectionReason || order.declineReason) && (
+                <View style={styles.rejectionCard}>
+                  <Text style={styles.rejectionText}>
+                    Motivo: {order.rejectionReason || order.declineReason}
+                  </Text>
+                </View>
+              )}
+
               {order.status === "delivered" && (
                 <View style={styles.cardFooter}>
                   <TouchableOpacity
@@ -468,5 +476,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: Palette.primary,
+  },
+  rejectionCard: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+  },
+  rejectionText: {
+    color: "#DC2626",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });
