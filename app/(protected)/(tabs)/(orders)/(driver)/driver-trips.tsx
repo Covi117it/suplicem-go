@@ -1,11 +1,9 @@
 import { useAlert } from "@/context/alertContext";
 import { useLoading } from "@/context/loadingContext";
-import { AcceptedTripContext } from "@/context/TripContext";
-import { getDriverTripsHistory, getTripDetail } from "@/services/tripsService";
+import { getDriverTripsHistory } from "@/services/tripsService";
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -35,8 +33,7 @@ const DriverTripsScreen: React.FC = () => {
   const [search, setSearch] = useState("");
   const { show, hide } = useLoading();
   const router = useRouter();
-  const { saveTrip } = useContext(AcceptedTripContext);
-  const { showAlert } = useAlert(); 
+  const { showAlert } = useAlert();
 
   const fetchTrips = async () => {
     try {
@@ -68,43 +65,11 @@ const DriverTripsScreen: React.FC = () => {
     }, [])
   );
 
-  const handleOpenTrip = async (tripId: string) => {
-    try {
-      show();
-      const tripResponse = await getTripDetail(tripId);
-      hide();
-
-      if (tripResponse.success && tripResponse.trip) {
-        if (
-          tripResponse?.trip?.status === "accepted" ||
-          tripResponse?.trip?.status === "started"
-        ) {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== "granted") {
-            showAlert({
-              message: "Debe activar la ubicación.",
-              type: "warning",
-            });
-            return;
-          }
-        }
-
-        saveTrip(tripResponse.trip);
-        router.push("/driver-order");
-      } else {
-        showAlert({
-          message: "No se pudo cargar el detalle del viaje.",
-          type: "error",
-        });
-      }
-    } catch (error) {
-      hide();
-      console.error("❌ Error al abrir viaje:", error);
-      showAlert({
-        message: "Ocurrió un error al abrir el detalle del viaje.",
-        type: "error",
-      });
-    }
+  const handleOpenTrip = (tripId: string) => {
+    router.push({
+      pathname: "/(protected)/(tabs)/(orders)/(driver)/driver-trip-detail",
+      params: { tripId },
+    });
   };
 
   const filteredTrips = trips.filter((trip) => {

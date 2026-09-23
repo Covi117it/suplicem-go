@@ -148,25 +148,39 @@ const UsersListScreen: React.FC = () => {
   };
 
   const roleCounts = useMemo(() => {
-    const counts = { all: users.length, client: 0, driver: 0, admin: 0 };
-    users.forEach((u) => {
+    // Filtramos según el estado seleccionado
+    const relevantUsers = statusFilter === "all"
+      ? users
+      : users.filter((u) => {
+          const st = u.status?.toLowerCase();
+          if (statusFilter === "active") return st === "active";
+          if (statusFilter === "inactive") return st === "inactive" || st === "pending";
+          return true;
+        });
+
+    const counts = { all: relevantUsers.length, client: 0, driver: 0, admin: 0 };
+    relevantUsers.forEach((u) => {
       const role = u.userType?.toLowerCase();
       if (role === "client") counts.client++;
       else if (role === "driver") counts.driver++;
       else if (role === "admin") counts.admin++;
     });
     return counts;
-  }, [users]);
+  }, [users, statusFilter]);
 
   const statusCounts = useMemo(() => {
-    const counts = { all: users.length, active: 0, inactive: 0 };
-    users.forEach((u) => {
+    // Filtramos según el rol seleccionado 
+    const relevantUsers = roleFilter === "all"
+      ? users
+      : users.filter((u) => u.userType?.toLowerCase() === roleFilter);
+    const counts = { all: relevantUsers.length, active: 0, inactive: 0 };
+    relevantUsers.forEach((u) => {
       const st = u.status?.toLowerCase();
       if (st === "active") counts.active++;
       else if (st === "inactive" || st === "pending") counts.inactive++;
     });
     return counts;
-  }, [users]);
+  }, [users, roleFilter])
 
   const filteredUsers = useMemo(() => {
     return sortUsers(
@@ -239,13 +253,12 @@ const UsersListScreen: React.FC = () => {
         counts={roleCounts}
       />
 
-      {/* Filtro por Estado */}
+     {/* Filtro por Estado */}
       <FilterChips
         options={STATUS_OPTIONS}
         activeFilter={statusFilter}
         onSelectFilter={setStatusFilter}
         counts={statusCounts}
-        activeColor="#0F294A"
       />
 
       {filteredUsers.length === 0 && (

@@ -1,13 +1,12 @@
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { useAlert } from "@/context/alertContext";
-import { useLoading } from "@/context/loadingContext";
 import { useOrders } from "@/context/orderContext";
 import { getAllOrders } from "@/services/orderService";
 import { OrderStatus } from "@/types/orders";
 import { StatusBadge, getStatusConfig } from "@/components/StatusBadge";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Image,
   RefreshControl,
@@ -18,6 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import FilterChips, { FilterOption } from "@/components/FilterChips";
+import { Palette } from "@/constants/theme";
 
 const STATUS_OPTIONS: OrderStatus[] = [
   "pending",
@@ -26,6 +27,16 @@ const STATUS_OPTIONS: OrderStatus[] = [
   "on_the_way",
   "delivered",
   "requested",
+];
+
+const ORDER_FILTER_OPTIONS: FilterOption<string>[] = [
+  { id: "Todos", label: "Todas" },
+  { id: "pending", label: "Pendientes" }, 
+  { id: "Alertas IA", label: "⚠️ Alertas IA" },
+  { id: "approved", label: "Aprobadas" },
+  { id: "on_the_way", label: "En camino" },
+  { id: "delivered", label: "Entregadas" },
+  { id: "rejected", label: "Rechazadas" },
 ];
 
 const AdminOrdersScreen = () => {
@@ -38,14 +49,21 @@ const AdminOrdersScreen = () => {
   const { showAlert } = useAlert();
   const router = useRouter();
 
-  const fetchOrders = useCallback(async () => {
+  const orderCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      Todos: orders.length,
+      "Alertas IA": orders.filter((o: any) => o.aiRiskFlag === true).length,
+    };
+    orders.forEach((o) => {
+      counts[o.status] = (counts[o.status] || 0) + 1;
+    });
+    return counts;
+  }, [orders]);
+
+   const fetchOrders = useCallback(async () => {
     try {
       setRefreshing(true);
-      const statusParam =
-        statusFilter !== "Todos" && statusFilter !== "Alertas IA"
-          ? statusFilter
-          : undefined;
-      const response = await getAllOrders(statusParam ? { status: statusParam } : undefined);
+      const response = await getAllOrders();
       if (response.success && response.orders) {
         setOrders(response.orders);
       } else {
@@ -63,7 +81,7 @@ const AdminOrdersScreen = () => {
     } finally {
       setRefreshing(false);
     }
-  }, [statusFilter, setOrders, showAlert]);
+  }, [setOrders, showAlert]);
 
   useFocusEffect(
     useCallback(() => {
@@ -138,33 +156,14 @@ const AdminOrdersScreen = () => {
           onChangeText={setSearch}
         />
 
-        <View style={styles.filterContainer}>
-          {["Todos", "Alertas IA", ...STATUS_OPTIONS].map((status) => (
-            <TouchableOpacity
-              key={status}
-              style={[
-                styles.filterButton,
-                status === "Alertas IA" && { borderColor: "#D32F2F" },
-                statusFilter === status && (status === "Alertas IA" ? { backgroundColor: "#D32F2F" } : styles.filterButtonActive),
-              ]}
-              onPress={() => setStatusFilter(status as any)}
-            >
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  status === "Alertas IA" && { color: statusFilter === status ? "#fff" : "#D32F2F" },
-                  statusFilter === status && { color: "#fff" },
-                ]}
-              >
-                {status === "Todos"
-                  ? "Todos"
-                  : status === "Alertas IA"
-                  ? "⚠️ Alertas IA"
-                  : getStatusConfig(status).label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+          <FilterChips
+          options={ORDER_FILTER_OPTIONS}
+          activeFilter={statusFilter}
+          onSelectFilter={(filter) => setStatusFilter(filter as any)}
+          counts={orderCounts}
+          activeColor={statusFilter === "Alertas IA" ? "#D32F2F" : Palette.primary}
+          style={{ marginBottom: 12 }}
+        />
 
         {[...filteredOrders]
           .sort((a, b) => {
