@@ -3,7 +3,7 @@ import { useAlert } from "@/context/alertContext";
 import { useOrders } from "@/context/orderContext";
 import { getAllOrders } from "@/services/orderService";
 import { OrderStatus } from "@/types/orders";
-import { StatusBadge, getStatusConfig } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -17,17 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import FilterChips, { FilterOption } from "@/components/FilterChips";
+import { FilterChips, FilterOption } from "@/components/FilterChips";
 import { Palette } from "@/constants/theme";
-
-const STATUS_OPTIONS: OrderStatus[] = [
-  "pending",
-  "approved",
-  "rejected",
-  "on_the_way",
-  "delivered",
-  "requested",
-];
 
 const ORDER_FILTER_OPTIONS: FilterOption<string>[] = [
   { id: "Todos", label: "Todas" },

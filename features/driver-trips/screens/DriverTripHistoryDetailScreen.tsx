@@ -10,7 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { InfoRow } from "@/components/InfoRow";
-import StatusBadge from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { DriverTripOrderCard } from "@/components/driver/DriverTripOrderCard";
 import { Palette } from "@/constants/theme";
 import { useDriverTripHistoryDetail } from "../hooks/useDriverTripHistoryDetail";
