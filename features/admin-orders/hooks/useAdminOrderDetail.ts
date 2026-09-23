@@ -165,12 +165,13 @@ export const useAdminOrderDetail = (orderId?: string) => {
       show();
       const response = await rejectOrderService(targetId, declineReason);
       if (response.success) {
-        updateOrder(targetId, {
+         updateOrder(targetId, {
           status: "rejected",
           declineReason: declineReason,
+          rejectionReason: declineReason,
         });
         setFreshOrder((prev) =>
-          prev ? { ...prev, status: "rejected", declineReason } : null
+          prev ? { ...prev, status: "rejected", declineReason, rejectionReason: declineReason } : null
         );
         setRejectModalVisible(false);
         setDeclineReason("");

@@ -135,9 +135,10 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Estado de la orden</Text>
           <StatusBadge status={currentOrder.status} />
-          {Boolean(currentOrder.declineReason) && (
+          
+           {Boolean(currentOrder.rejectionReason || currentOrder.declineReason) && (
             <Text style={styles.declineReasonText}>
-              Motivo de rechazo: {currentOrder.declineReason}
+              Motivo de rechazo: {currentOrder.rejectionReason || currentOrder.declineReason}
             </Text>
           )}
         </View>

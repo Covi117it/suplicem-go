@@ -36,6 +36,23 @@ export const ClientOrderSummaryCard: React.FC<ClientOrderSummaryCardProps> = ({
         <StatusBadge status={selectedOrder.status} size="small" />
       </InfoRow>
 
+        {/* Banner de Orden Rechazada */}
+      {selectedOrder.status === "rejected" && (
+        <View style={styles.rejectedBanner}>
+          <View style={styles.rejectedBannerIcon}>
+            <Ionicons name="close-circle" size={24} color="#DC2626" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rejectedBannerTitle}>Pedido Rechazado</Text>
+            <Text style={styles.rejectedBannerText}>
+              {selectedOrder.rejectionReason ||
+                selectedOrder.declineReason ||
+                "Este pedido fue rechazado por la administración."}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {Boolean(selectedOrder.userPhone || userPhone) && (
         <InfoRow
           icon="call-outline"
@@ -236,6 +253,37 @@ const styles = StyleSheet.create({
   acceptedBannerText: {
     fontSize: 12,
     color: "#1E3A8A",
+    marginTop: 2,
+    lineHeight: 16,
+  },
+
+    rejectedBanner: {
+    flexDirection: "row",
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginVertical: 10,
+    alignItems: "center",
+    gap: 12,
+  },
+  rejectedBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  rejectedBannerTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#DC2626",
+  },
+  rejectedBannerText: {
+    fontSize: 12,
+    color: "#991B1B",
     marginTop: 2,
     lineHeight: 16,
   },
