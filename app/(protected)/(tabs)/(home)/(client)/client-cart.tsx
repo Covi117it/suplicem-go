@@ -159,9 +159,9 @@ const CartScreen: React.FC = () => {
   const handlePickReceipt = async (useCamera = false) => {
     const result = await pickAndCompressImage({
       useCamera,
-      maxWidth: 800,
-      quality: 0.5,
-      includeBase64: true,
+      maxWidth: 1200,
+      quality: 0.7,
+      includeBase64: false, 
     });
     if (!result.success) {
       if (result.errorMessage) {
@@ -169,10 +169,8 @@ const CartScreen: React.FC = () => {
       }
       return;
     }
-    const imageString = result.base64
-      ? (result.base64.startsWith("data:") ? result.base64 : `data:image/jpeg;base64,${result.base64}`)
-      : result.uri || null;
-    setReceiptImage(imageString);
+    setReceiptImage(result.uri || null);
+
     showAlert({
       message: "¡Foto del comprobante adjuntada correctamente!",
       type: "success",
