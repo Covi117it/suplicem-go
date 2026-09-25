@@ -60,6 +60,31 @@ export const createOrder = async (order: {
   comments?: string;
   receiptImage?: string;
 }) => {
+  // Si viene una imagen local enviar como multipart/form-data
+  if (order.receiptImage && !order.receiptImage.startsWith("http")) {
+    const formData = new FormData();
+    const { receiptImage, ...orderData } = order;
+
+    const file: any = {
+      uri: receiptImage,
+      name: "comprobante.jpg",
+      type: "image/jpeg",
+    };
+
+    formData.append("receiptImage", file);
+    formData.append("data", JSON.stringify(orderData));
+
+    const result = await safeRequest(() =>
+      protectedApi.post("/orders", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
+    );
+    return result.success ? result.data : { success: false, message: result.message };
+  }
+
+  // Si no hay imagen o ya es una URL, enviar petición JSON normal
   const result = await safeRequest(() => protectedApi.post("/orders", order));
   return result.success ? result.data : { success: false, message: result.message };
 };

@@ -6,7 +6,30 @@ export const createProduct = async (product: {
   price: number;
   unit: string;
   imageUrl?: string;
+  imageUri?: string;
 }) => {
+  if (product.imageUri) {
+    const formData = new FormData();
+    const file: any = {
+      uri: product.imageUri,
+      name: "producto.jpg",
+      type: "image/jpeg",
+    };
+    formData.append("image", file);
+    formData.append("name", product.name);
+    formData.append("price", product.price.toString());
+    formData.append("unit", product.unit);
+
+    const result = await safeRequest(() =>
+      protectedApi.post("/products", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
+    );
+    return result.success ? result.data : { success: false, message: result.message };
+  }
+
   const result = await safeRequest(() => protectedApi.post("/products", product));
   return result.success ? result.data : { success: false, message: result.message };
 };

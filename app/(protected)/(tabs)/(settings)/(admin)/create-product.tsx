@@ -50,11 +50,11 @@ const CreateProductScreen: React.FC = () => {
       return;
     }
 
-    const newProduct = {
+     const newProduct = {
       name,
       price: parseFloat(price),
       unit: type,
-      imageUrl: "https://enfoco.com.do/test/suplicem/cemento.jpg",
+      imageUri: imageUri || undefined,
     };
 
     try {
