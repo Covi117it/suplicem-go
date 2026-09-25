@@ -1,11 +1,13 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import CheckRender from "@/components/CheckRender";
 import InfoRow from "@/components/InfoRow";
 import StatusBadge from "@/components/StatusBadge";
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { Palette } from "@/constants/theme";
 import { formatRD } from "@/utils/currencyUtils";
+import { openExternalNavigation } from "@/utils/navigationUtils";
 
 type DriverTripOrderCardProps = {
   order: any;
@@ -103,6 +105,26 @@ export const DriverTripOrderCard: React.FC<DriverTripOrderCardProps> = ({
                   {order?.items?.find((o: any) => o.productId === delivery.productId)?.name}{" "}
                   - {delivery.quantity} {delivery.unit}
                 </Text>
+
+                {delivery.address?.latitude && delivery.address?.longitude && (
+                  <TouchableOpacity
+                    style={styles.navigationButton}
+                    onPress={() =>
+                      openExternalNavigation({
+                        latitude: Number(delivery.address.latitude),
+                        longitude: Number(delivery.address.longitude),
+                        label: `${order.userNames || ""} ${order.userLastNames || ""} - ${delivery.address?.description || "Destino"}`,
+                      })
+                    }
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="compass-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.navigationButtonText}>
+                      🗺️ Navegar con GPS (Google Maps / Waze)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
                 <CheckRender allowed={delivery.status === "delivered"}>
                   <View style={{ marginTop: 8 }}>
                     <StatusBadge status="delivered" size="small" />
@@ -224,6 +246,22 @@ const styles = StyleSheet.create({
   },
   deliverButtonText: {
     color: "#fff",
+    fontWeight: "bold",
+  },
+  navigationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#0284C7",
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  navigationButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
     fontWeight: "bold",
   },
 });

@@ -10,14 +10,17 @@ import {
   Dimensions,
   Image,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker, UrlTile } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { calculateTripEstimate, WAREHOUSE_LOCATION } from "@/utils/tripEstimate";
 import { statusMap } from "../../(orders)/(driver)/driver-trips";
+
 
 const TripDetailScreen: React.FC = () => {
   const { trip, saveTrip } = useContext(AcceptedTripContext);
@@ -285,42 +288,72 @@ const TripDetailScreen: React.FC = () => {
         Comentarios del viaje: {trip?.comments || "Ninguno"}
       </Text>
 
-      {driverLocation &&
-        trip?.assignedDriverId &&
-        (trip?.status === "accepted" || trip?.status === "started") && (
+      {(() => {
+        const firstDelivery = trip?.orders
+          ?.flatMap((order: any) => order?.deliveries || [])
+          ?.find((d: any) => d?.address?.latitude && d?.address?.longitude);
+
+        const originCoords = driverLocation || WAREHOUSE_LOCATION;
+        const destCoords = firstDelivery?.address
+          ? {
+              latitude: Number(firstDelivery.address.latitude),
+              longitude: Number(firstDelivery.address.longitude),
+            }
+          : null;
+
+        const estimate = destCoords
+          ? calculateTripEstimate(originCoords, destCoords)
+          : null;
+
+        if (!destCoords) return null;
+
+        return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ubicación actual del camión</Text>
+            <Text style={styles.sectionTitle}>Ruta y Tiempo Estimado del Viaje</Text>
+
+            {estimate && (
+              <View style={styles.estimateBanner}>
+                <View style={styles.estimateHeader}>
+                  <Text style={styles.estimateTitle}>⏱️ Tiempo estimado de trayecto:</Text>
+                  <Text style={styles.estimateValue}>{estimate.formattedText}</Text>
+                </View>
+                <Text style={styles.estimateRouteText}>
+                  🏢 Partida: {driverLocation ? "Camión en movimiento" : WAREHOUSE_LOCATION.name}
+                  {"\n"}📍 Llegada: {firstDelivery?.address?.description || "Destino del cliente"}
+                </Text>
+              </View>
+            )}
+
             <MapView
+              provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
               style={styles.map}
-              mapType="none"
               initialRegion={{
-                latitude: driverLocation.latitude,
-                longitude: driverLocation.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
+                latitude: originCoords.latitude,
+                longitude: originCoords.longitude,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
               }}
             >
-              <UrlTile
-                urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maximumZ={19}
-                flipY={false}
-                zIndex={-1}
-              />
-              <Marker
-                coordinate={driverLocation}
-                title="Camión"
-                description="Ubicación actual"
-              >
-                <Image
-                  source={require("@/assets/images/camion.png")}
-                  style={{ width: 40, height: 40 }}
-                  resizeMode="contain"
+              {driverLocation ? (
+                <Marker coordinate={driverLocation} title="🏢 Camión en ruta" description="Ubicación actual del chofer">
+                  <Image
+                    source={require("@/assets/images/camion.png")}
+                    style={{ width: 42, height: 42 }}
+                    resizeMode="contain"
+                  />
+                </Marker>
+              ) : (
+                <Marker
+                  coordinate={WAREHOUSE_LOCATION}
+                  title="🏢 Punto de Partida"
+                  description={WAREHOUSE_LOCATION.name}
+                  pinColor="blue"
                 />
-              </Marker>
+              )}
 
               {/* Marcadores de direcciones de entrega */}
-              {trip?.orders?.map((order) =>
-                order?.deliveries?.map((delivery, index) => {
+              {trip?.orders?.map((order: any) =>
+                order?.deliveries?.map((delivery: any, index: number) => {
                   if (
                     delivery?.address?.latitude &&
                     delivery?.address?.longitude
@@ -329,24 +362,37 @@ const TripDetailScreen: React.FC = () => {
                       <Marker
                         key={`${order.id}-${index}`}
                         coordinate={{
-                          latitude: delivery.address.latitude,
-                          longitude: delivery.address.longitude,
+                          latitude: Number(delivery.address.latitude),
+                          longitude: Number(delivery.address.longitude),
                         }}
-                        title={`👤: ${order.userNames} ${order.userLastNames}`}
-                        // Se actualizó la descripción para el marcador
-                        description={`${delivery.address.description}${
-                          delivery.address.additionalInfo && `, ${delivery.address.additionalInfo}`
+                        title={`📍 Llegada: ${order.userNames} ${order.userLastNames}`}
+                        description={`${delivery.address.description || ""}${
+                          delivery.address.additionalInfo ? `, ${delivery.address.additionalInfo}` : ""
                         }`}
-                        pinColor="green"
+                        pinColor="red"
                       />
                     );
                   }
                   return null;
                 })
               )}
+
+              {/* Línea de ruta entre Partida y Llegada */}
+              {destCoords && (
+                <Polyline
+                  coordinates={[
+                    { latitude: originCoords.latitude, longitude: originCoords.longitude },
+                    { latitude: destCoords.latitude, longitude: destCoords.longitude },
+                  ]}
+                  strokeColor="#E31E24"
+                  strokeWidth={4}
+                  lineDashPattern={[5, 5]}
+                />
+              )}
             </MapView>
           </View>
-        )}
+        );
+      })()}
     </ScrollView>
   );
 };
@@ -481,7 +527,36 @@ const styles = StyleSheet.create({
   },
   deliveryImage: {
     width: "100%",
-    height: 250, // Aumenté la altura para que sea más visible
-    borderRadius: 10, // Un borde redondeado más pronunciado
+    height: 250,
+    borderRadius: 10,
+  },
+  estimateBanner: {
+    backgroundColor: "#F0F7FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  estimateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  estimateTitle: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#1E40AF",
+  },
+  estimateValue: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#E31E24",
+  },
+  estimateRouteText: {
+    fontSize: 12,
+    color: "#334155",
+    lineHeight: 18,
   },
 });

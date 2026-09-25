@@ -1,7 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 
 interface AddressPickerProps {
   initialValue?: string;
@@ -20,13 +25,33 @@ interface AddressPickerProps {
   }) => void;
 }
 
+import { cleanFormattedAddress } from "@/utils/addressFormatter";
+
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 export default function AddressPicker({ onPlaceSelected, initialValue = "" }: AddressPickerProps) {
   const [query, setQuery] = useState(initialValue);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingGps, setLoadingGps] = useState(false);
+
+  // Modal de Mapa Interactivo
+  const [isMapModalVisible, setIsMapModalVisible] = useState(false);
+  const [pinLocation, setPinLocation] = useState({ latitude: 18.4861, longitude: -69.9312 });
+  const [pinAddressText, setPinAddressText] = useState("");
+  const [loadingPinGeocode, setLoadingPinGeocode] = useState(false);
+
   const debounceTimerRef = useRef<any>(null);
+  const sessionTokenRef = useRef<string>("");
+  const geocodeTimerRef = useRef<any>(null);
+  const geocodeReqIdRef = useRef<number>(0);
+
+  const getSessionToken = () => {
+    if (!sessionTokenRef.current) {
+      sessionTokenRef.current = `mob-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    }
+    return sessionTokenRef.current;
+  };
 
   useEffect(() => {
     if (initialValue && initialValue !== query) {
@@ -34,15 +59,73 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
     }
   }, [initialValue]);
 
+  // Reverse geocoding con Google Geocoding API
+  const reverseGeocodeGoogle = async (lat: number, lng: number) => {
+    if (API_KEY && !API_KEY.includes("your_")) {
+      try {
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&language=es&key=${API_KEY}`;
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.status === "OK" && json.results && json.results.length > 0) {
+          const firstResult = json.results[0];
+          return cleanFormattedAddress(firstResult.formatted_address, firstResult.address_components);
+        }
+      } catch (e) {
+        console.log("Error reverse geocoding Google:", e);
+      }
+    }
+    // Fallback a expo-location
+    try {
+      const [addr] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+      if (addr) {
+        const parts = [
+          addr.streetNumber ? `No. ${addr.streetNumber}` : "",
+          addr.street || addr.name,
+          addr.district || addr.subregion || addr.city,
+          addr.region && !addr.region.toLowerCase().includes("ozama") ? (addr.region === "Distrito Nacional" ? "Santo Domingo" : addr.region) : "Santo Domingo",
+        ].filter(Boolean);
+        return cleanFormattedAddress(parts.join(", "));
+      }
+    } catch (e) {
+      console.log("Error reverse geocoding Expo:", e);
+    }
+    return `Ubicación: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  };
+
+  // Forward geocoding para texto escrito a mano por el usuario
+  const forwardGeocodeText = async (text: string) => {
+    if (!text || text.trim().length < 3) return null;
+    if (API_KEY && !API_KEY.includes("your_")) {
+      try {
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          text + ", República Dominicana"
+        )}&components=country:do&language=es&key=${API_KEY}`;
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.status === "OK" && json.results && json.results.length > 0) {
+          const loc = json.results[0].geometry.location;
+          return {
+            latitude: loc.lat,
+            longitude: loc.lng,
+            description: cleanFormattedAddress(json.results[0].formatted_address, json.results[0].address_components),
+          };
+        }
+      } catch (e) {
+        console.log("Error forward geocoding:", e);
+      }
+    }
+    return null;
+  };
+
   const handleQueryChange = (text: string) => {
     setQuery(text);
 
-    // Notificar inmediatamente al formulario la dirección escrita en tiempo real
+    // Notificar cambio inmediato (sin forzar coordenadas fijas)
     onPlaceSelected({
       placeId: `custom-${Date.now()}`,
       description: text,
-      latitude: 18.4861,
-      longitude: -69.9312,
+      latitude: 0,
+      longitude: 0,
     });
 
     if (text.trim().length < 2) {
@@ -51,13 +134,12 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
       return;
     }
 
-    // Opción principal: La dirección exacta ingresada por el usuario
     const exactUserOption = {
       id: "exact-user-input",
       description: text,
       isExact: true,
-      latitude: 18.4861,
-      longitude: -69.9312,
+      latitude: 0,
+      longitude: 0,
     };
 
     setResults([exactUserOption]);
@@ -66,25 +148,41 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Debouncing de 300ms para consultar calles y puntos precisos
     debounceTimerRef.current = setTimeout(() => {
       fetchNetworkSuggestions(text, exactUserOption);
-    }, 300);
+    }, 350);
   };
 
   const fetchNetworkSuggestions = async (text: string, exactOption: any) => {
     setLoading(true);
 
+    let updatedExactOption = { ...exactOption };
+
+    // Intentar geocodificar el texto manual para obtener coordenadas reales
+    const geocoded = await forwardGeocodeText(text);
+    if (geocoded) {
+      updatedExactOption.latitude = geocoded.latitude;
+      updatedExactOption.longitude = geocoded.longitude;
+      // Notificar con coordenadas reales geocodificadas
+      onPlaceSelected({
+        placeId: `custom-geocoded-${Date.now()}`,
+        description: text,
+        latitude: geocoded.latitude,
+        longitude: geocoded.longitude,
+      });
+    }
+
     try {
-      // 1. Google Places Autocomplete API (si la API KEY está configurada)
+      // 1. Google Places Autocomplete API con Session Token y filtro República Dominicana (country:do)
       if (
         API_KEY &&
         API_KEY !== "your_google_maps_api_key_here" &&
         !API_KEY.includes("your_")
       ) {
+        const token = getSessionToken();
         const googleUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
           text
-        )}&components=country:do&language=es&key=${API_KEY}`;
+        )}&components=country:do&language=es&sessiontoken=${token}&key=${API_KEY}`;
 
         const res = await fetch(googleUrl);
         const json = await res.json();
@@ -92,17 +190,17 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
         if (json.status === "OK" && json.predictions && json.predictions.length > 0) {
           const googleResults = json.predictions.map((p: any) => ({
             id: p.place_id,
-            description: p.description,
+            description: cleanFormattedAddress(p.description),
             isGoogle: true,
             placeId: p.place_id,
           }));
-          setResults([exactOption, ...googleResults]);
+          setResults([updatedExactOption, ...googleResults]);
           setLoading(false);
           return;
         }
       }
 
-      // 2. OpenStreetMap Nominatim API: Búsqueda precisa de calles, avenidas y números en RD
+      // 2. OpenStreetMap Nominatim API Fallback
       const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
         text + ", República Dominicana"
       )}&format=json&addressdetails=1&limit=6`;
@@ -117,37 +215,15 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
       if (nomRes.ok) {
         const nomJson = await nomRes.json();
         if (Array.isArray(nomJson) && nomJson.length > 0) {
-          // Detectar si el usuario escribió un número de casa/calle (#7, No. 7, Apto 4, etc.)
-          const numberMatch = text.match(/(?:#|no\.|num\.|n°|apto|casa)?\s*(\d+[a-z]?)/i);
-          const houseNumStr = numberMatch ? `#${numberMatch[1]}` : "";
+          const mapped = nomJson.map((item: any, idx: number) => ({
+            id: `nom-${idx}-${item.place_id}`,
+            description: cleanFormattedAddress(item.display_name),
+            latitude: parseFloat(item.lat) || 0,
+            longitude: parseFloat(item.lon) || 0,
+            isGoogle: false,
+          }));
 
-          const mapped = nomJson.map((item: any, idx: number) => {
-            const addr = item.address || {};
-            const streetName = addr.road || addr.pedestrian || addr.suburb || item.name || "";
-            const sectorName = addr.neighbourhood || addr.suburb || addr.district || addr.quarter || "";
-            const cityName = addr.city || addr.town || addr.state || "Santo Domingo";
-
-            let formattedAddress = "";
-            if (streetName) {
-              const streetWithNum = houseNumStr ? `${streetName} ${houseNumStr}` : streetName;
-              const parts = [streetWithNum, sectorName, cityName, "República Dominicana"].filter(
-                (p, index, self) => p && self.indexOf(p) === index
-              );
-              formattedAddress = parts.join(", ");
-            } else {
-              formattedAddress = item.display_name;
-            }
-
-            return {
-              id: `nom-${idx}-${item.place_id}`,
-              description: formattedAddress,
-              latitude: parseFloat(item.lat) || 18.4861,
-              longitude: parseFloat(item.lon) || -69.9312,
-              isGoogle: false,
-            };
-          });
-
-          const finalResults = [exactOption];
+          const finalResults = [updatedExactOption];
           mapped.forEach((m) => {
             if (!finalResults.some((r) => r.description.toLowerCase() === m.description.toLowerCase())) {
               finalResults.push(m);
@@ -159,47 +235,8 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
           return;
         }
       }
-
-      // 3. Fallback: Photon Geocoder
-      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
-        text
-      )}&bbox=-72.0,17.4,-68.3,20.0&lang=es&limit=5`;
-
-      const photonRes = await fetch(photonUrl);
-      const photonJson = await photonRes.json();
-
-      if (photonJson && photonJson.features && photonJson.features.length > 0) {
-        const mapped = photonJson.features.map((f: any, idx: number) => {
-          const props = f.properties || {};
-          const coords = f.geometry?.coordinates || [-69.9312, 18.4861];
-
-          const parts = [
-            props.name,
-            props.street,
-            props.district || props.suburb || props.city || props.state,
-            props.country || "República Dominicana",
-          ].filter(Boolean);
-
-          return {
-            id: `photon-${idx}-${Date.now()}`,
-            description: parts.join(", ") || props.name || text,
-            latitude: coords[1],
-            longitude: coords[0],
-            isGoogle: false,
-          };
-        });
-
-        const finalResults = [exactOption];
-        mapped.forEach((m: any) => {
-          if (!finalResults.some((r) => r.description.toLowerCase() === m.description.toLowerCase())) {
-            finalResults.push(m);
-          }
-        });
-
-        setResults(finalResults);
-      }
     } catch (err) {
-      // Silenciar errores de red
+      console.log("Error buscando sugerencias de dirección:", err);
     } finally {
       setLoading(false);
     }
@@ -207,23 +244,7 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
 
   const handleSelectSuggestion = async (item: any) => {
     setResults([]);
-
-    let finalDescription = item.description;
-
-    // Si seleccionó una sugerencia de calle/sector y el usuario tenía un número de casa o detalle específico tecleado
-    if (!item.isExact && query.trim()) {
-      const lowerQuery = query.toLowerCase();
-      const lowerItem = item.description.toLowerCase();
-
-      // Si la sugerencia devuelta no incluye los detalles específicos (ej. #7, apto 3)
-      if (!lowerItem.includes(lowerQuery)) {
-        // Preservar la calle/número específicos ingresados por el usuario
-        const numberMatch = query.match(/(?:#|no\.|num\.|n°|apto|casa)?\s*(\d+[a-z]?)/i);
-        if (numberMatch && !lowerItem.includes(numberMatch[0].toLowerCase())) {
-          finalDescription = `${query.trim()} (${item.description})`;
-        }
-      }
-    }
+    let finalDescription = cleanFormattedAddress(item.description);
 
     setQuery(finalDescription);
 
@@ -231,35 +252,134 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
       onPlaceSelected({
         placeId: item.id || `loc-${Date.now()}`,
         description: finalDescription,
-        latitude: item.latitude || 18.4861,
-        longitude: item.longitude || -69.9312,
+        latitude: item.latitude || 0,
+        longitude: item.longitude || 0,
       });
+      sessionTokenRef.current = "";
       return;
     }
 
     try {
+      const token = getSessionToken();
       const res = await fetch(
         `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
           item.placeId
-        )}&fields=geometry,name,formatted_address&language=es&key=${API_KEY}`
+        )}&fields=geometry,name,formatted_address,address_components&language=es&sessiontoken=${token}&key=${API_KEY}`
       );
       const json = await res.json();
       const loc = json.result?.geometry?.location;
+      const cleaned = json.result?.formatted_address
+        ? cleanFormattedAddress(json.result.formatted_address, json.result.address_components)
+        : finalDescription;
+
+      setQuery(cleaned);
 
       onPlaceSelected({
         placeId: item.placeId,
-        description: finalDescription,
-        latitude: loc?.lat || 18.4861,
-        longitude: loc?.lng || -69.9312,
+        description: cleaned,
+        latitude: loc?.lat || 0,
+        longitude: loc?.lng || 0,
       });
     } catch (error) {
       onPlaceSelected({
         placeId: item.placeId,
         description: finalDescription,
-        latitude: 18.4861,
-        longitude: -69.9312,
+        latitude: 0,
+        longitude: 0,
       });
+    } finally {
+      sessionTokenRef.current = "";
     }
+  };
+
+  // Botón 1: "Usar mi ubicación actual" (GPS con 1 toque)
+  const handleUseCurrentGPS = async () => {
+    setLoadingGps(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permiso requerido",
+          "Necesitamos permiso de ubicación GPS para obtener tu dirección exacta."
+        );
+        setLoadingGps(false);
+        return;
+      }
+
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const lat = currentLocation.coords.latitude;
+      const lng = currentLocation.coords.longitude;
+
+      const addressText = await reverseGeocodeGoogle(lat, lng);
+      setQuery(addressText);
+      setResults([]);
+
+      onPlaceSelected({
+        placeId: `gps-${Date.now()}`,
+        description: addressText,
+        latitude: lat,
+        longitude: lng,
+      });
+
+      setPinLocation({ latitude: lat, longitude: lng });
+    } catch (e) {
+      Alert.alert("Error de GPS", "No pudimos obtener tu ubicación actual. Intenta de nuevo.");
+    } finally {
+      setLoadingGps(false);
+    }
+  };
+
+  // Botón 2: Abrir mapa interactivo para soltar Pin
+  const handleOpenMapPinModal = async () => {
+    setIsMapModalVisible(true);
+    let startLat = pinLocation.latitude;
+    let startLng = pinLocation.longitude;
+
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        startLat = currentLocation.coords.latitude;
+        startLng = currentLocation.coords.longitude;
+        setPinLocation({ latitude: startLat, longitude: startLng });
+      }
+    } catch (e) {}
+
+    updatePinGeocode(startLat, startLng);
+  };
+
+  const updatePinGeocode = (lat: number, lng: number) => {
+    const reqId = ++geocodeReqIdRef.current;
+    setLoadingPinGeocode(true);
+    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+
+    geocodeTimerRef.current = setTimeout(async () => {
+      const addr = await reverseGeocodeGoogle(lat, lng);
+      if (reqId === geocodeReqIdRef.current) {
+        setPinAddressText(addr);
+        setLoadingPinGeocode(false);
+      }
+    }, 300);
+  };
+
+  const handleConfirmPinLocation = () => {
+    const finalDesc = pinAddressText || query || "Punto marcado en mapa";
+    setQuery(finalDesc);
+    setResults([]);
+
+    onPlaceSelected({
+      placeId: `pin-${Date.now()}`,
+      description: finalDesc,
+      latitude: pinLocation.latitude,
+      longitude: pinLocation.longitude,
+    });
+
+    setIsMapModalVisible(false);
   };
 
   const clearQuery = () => {
@@ -268,8 +388,8 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
     onPlaceSelected({
       placeId: "",
       description: "",
-      latitude: 18.4861,
-      longitude: -69.9312,
+      latitude: 0,
+      longitude: 0,
     });
   };
 
@@ -298,7 +418,35 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
         )}
       </View>
 
-      {/* Badge explicativo de confirmación de dirección guardada */}
+      {/* Botones de acción rápida: GPS de 1 toque y Marcar en el Mapa */}
+      <View style={styles.actionButtonsRow}>
+        <TouchableOpacity
+          style={styles.gpsButton}
+          onPress={handleUseCurrentGPS}
+          disabled={loadingGps}
+          activeOpacity={0.8}
+        >
+          {loadingGps ? (
+            <ActivityIndicator size="small" color="#0F294A" />
+          ) : (
+            <Ionicons name="navigate-outline" size={16} color="#0F294A" />
+          )}
+          <Text style={styles.gpsButtonText}>
+            {loadingGps ? "Obteniendo GPS..." : "Usar mi ubicación actual"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.mapPinButton}
+          onPress={handleOpenMapPinModal}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="map-outline" size={16} color="#E31E24" />
+          <Text style={styles.mapPinButtonText}>Marcar en el Mapa</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Badge explicativo de confirmación de dirección activa */}
       {query.trim().length > 0 && (
         <View style={styles.activeBadge}>
           <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
@@ -331,12 +479,93 @@ export default function AddressPicker({ onPlaceSelected, initialValue = "" }: Ad
                 style={[styles.resultText, item.isExact && styles.resultTextExact]}
                 numberOfLines={2}
               >
-                {item.isExact ? `📌 Guardar esta dirección exacta: "${item.description}"` : item.description}
+                {item.isExact ? `📌 Guardar esta dirección: "${item.description}"` : item.description}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       )}
+
+      {/* MODAL DE MAPA INTERACTIVO (Pin en Mapa) */}
+      <Modal
+        visible={isMapModalVisible}
+        animationType="slide"
+        onRequestClose={() => setIsMapModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setIsMapModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#0F294A" />
+            </TouchableOpacity>
+            <View style={{ flex: 1, alignItems: "center" }}>
+              <Text style={styles.modalTitle}>Marcar Punto de Entrega</Text>
+              <Text style={styles.modalSubTitle}>Mueve el mapa para centrar el pin</Text>
+            </View>
+            <View style={{ width: 32 }} />
+          </View>
+
+          <View style={styles.mapWrapper}>
+            <MapView
+              provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+              style={styles.fullMap}
+              initialRegion={{
+                latitude: pinLocation.latitude,
+                longitude: pinLocation.longitude,
+                latitudeDelta: 0.005,
+                longitudeDelta: 0.005,
+              }}
+              onRegionChangeComplete={(region) => {
+                setPinLocation({
+                  latitude: region.latitude,
+                  longitude: region.longitude,
+                });
+                updatePinGeocode(region.latitude, region.longitude);
+              }}
+            />
+
+            {/* Centered Fixed Pin */}
+            <View style={styles.centerPinContainer} pointerEvents="none">
+              <Ionicons name="location" size={42} color="#E31E24" />
+            </View>
+          </View>
+
+          {/* Modal Footer */}
+          <View style={styles.modalFooter}>
+            <View style={styles.pinAddressBox}>
+              <Ionicons name="location-sharp" size={18} color="#E31E24" />
+              <View style={{ flex: 1, justifyContent: "center" }}>
+                <Text style={styles.pinAddressLabel}>Ubicación marcada:</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minHeight: 20 }}>
+                  {loadingPinGeocode && (
+                    <ActivityIndicator size="small" color="#E31E24" />
+                  )}
+                  <Text
+                    style={[
+                      styles.pinAddressValue,
+                      loadingPinGeocode && { color: "#64748B" },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {pinAddressText || "Mueve el mapa para obtener la dirección..."}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.confirmPinButton}
+              onPress={handleConfirmPinLocation}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.confirmPinButtonText}>Confirmar esta ubicación</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -352,7 +581,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderColor: "#CBD5E1",
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 8,
     backgroundColor: "#ffffff",
     paddingHorizontal: 10,
   },
@@ -368,15 +597,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#0F294A",
   },
+  actionButtonsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  gpsButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  gpsButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0F294A",
+  },
+  mapPinButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  mapPinButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#DC2626",
+  },
   activeBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     backgroundColor: "#F0FDF4",
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: "#BBF7D0",
   },
@@ -390,7 +660,7 @@ const styles = StyleSheet.create({
     maxHeight: 180,
     marginTop: 4,
     backgroundColor: "#ffffff",
-    borderRadius: 6,
+    borderRadius: 8,
     borderColor: "#CBD5E1",
     borderWidth: 1,
     elevation: 4,
@@ -422,5 +692,92 @@ const styles = StyleSheet.create({
   resultTextExact: {
     fontWeight: "bold",
     color: "#15803D",
+  },
+
+  // Estilos del Modal del Mapa
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 50 : 20,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    backgroundColor: "#ffffff",
+  },
+  modalCloseBtn: {
+    padding: 6,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0F294A",
+  },
+  modalSubTitle: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+  mapWrapper: {
+    flex: 1,
+    position: "relative",
+  },
+  fullMap: {
+    width: "100%",
+    height: "100%",
+  },
+  centerPinContainer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: -42,
+  },
+  modalFooter: {
+    padding: 16,
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+  },
+  pinAddressBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#F8FAFC",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 12,
+  },
+  pinAddressLabel: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+  pinAddressValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0F294A",
+  },
+  confirmPinButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#E31E24",
+    paddingVertical: 14,
+    borderRadius: 10,
+  },
+  confirmPinButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "bold",
   },
 });

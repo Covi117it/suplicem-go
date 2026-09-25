@@ -4,6 +4,7 @@ import CheckRender from "@/components/CheckRender";
 
 type TripActionButtonsProps = {
   tripStatus: string;
+  onAcceptTrip?: () => void;
   onStartTrip: () => void;
   onCompleteOrder: () => void;
   onCancel: () => void;
@@ -11,24 +12,41 @@ type TripActionButtonsProps = {
 
 export const TripActionButtons: React.FC<TripActionButtonsProps> = ({
   tripStatus,
+  onAcceptTrip,
   onStartTrip,
   onCompleteOrder,
   onCancel,
 }) => {
+  const canAccept =
+    tripStatus !== "accepted" &&
+    tripStatus !== "started" &&
+    tripStatus !== "in_progress" &&
+    tripStatus !== "completed" &&
+    tripStatus !== "canceled";
+
   return (
     <View style={styles.actions}>
-      <CheckRender allowed={tripStatus === "accepted"}>
-        <TouchableOpacity style={styles.startButton} onPress={onStartTrip}>
-          <Text style={styles.actionText}>Iniciar viaje</Text>
+      <CheckRender allowed={canAccept}>
+        <TouchableOpacity
+          style={styles.acceptButton}
+          onPress={onAcceptTrip || onStartTrip}
+        >
+          <Text style={styles.actionText}>✓ Aceptar viaje</Text>
         </TouchableOpacity>
       </CheckRender>
 
-      <CheckRender allowed={tripStatus === "started"}>
+      <CheckRender allowed={tripStatus === "accepted"}>
+        <TouchableOpacity style={styles.startButton} onPress={onStartTrip}>
+          <Text style={styles.actionText}>▶ Iniciar viaje</Text>
+        </TouchableOpacity>
+      </CheckRender>
+
+      <CheckRender allowed={tripStatus === "started" || tripStatus === "in_progress"}>
         <TouchableOpacity
           style={styles.completeButton}
           onPress={onCompleteOrder}
         >
-          <Text style={styles.actionText}>Completar viaje</Text>
+          <Text style={styles.actionText}>✓ Completar viaje</Text>
         </TouchableOpacity>
       </CheckRender>
 
@@ -36,7 +54,7 @@ export const TripActionButtons: React.FC<TripActionButtonsProps> = ({
         allowed={tripStatus !== "completed" && tripStatus !== "canceled"}
       >
         <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-          <Text style={styles.actionText}>Cancelar viaje</Text>
+          <Text style={styles.actionText}>✕ Cancelar viaje</Text>
         </TouchableOpacity>
       </CheckRender>
     </View>
@@ -49,6 +67,12 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: 30,
     gap: 12,
+  },
+  acceptButton: {
+    backgroundColor: "#16A34A",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
   },
   startButton: {
     backgroundColor: "#2196F3",

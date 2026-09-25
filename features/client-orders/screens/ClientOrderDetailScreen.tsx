@@ -1,9 +1,11 @@
 import React, { useContext } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import ScreenHeader from "@/components/ScreenHeader";
 import { AuthContext } from "@/context/authContext";
 import { useOrders } from "@/context/orderContext";
 import { formatRD } from "@/utils/currencyUtils";
+import { openExternalNavigation } from "@/utils/navigationUtils";
 import { useClientOrderTracking } from "../hooks/useClientOrderTracking";
 import { useRepeatOrder } from "../hooks/useRepeatOrder";
 import { ClientOrderSummaryCard } from "../components/ClientOrderSummaryCard";
@@ -100,6 +102,25 @@ export const ClientOrderDetailScreen: React.FC<
                 }{" "}
                 - {delivery.quantity} {delivery.unit}
               </Text>
+
+              {delivery.address?.latitude && delivery.address?.longitude && (
+                <TouchableOpacity
+                  style={styles.navigationButton}
+                  onPress={() =>
+                    openExternalNavigation({
+                      latitude: Number(delivery.address.latitude),
+                      longitude: Number(delivery.address.longitude),
+                      label: delivery.address?.description || "Destino de Entrega",
+                    })
+                  }
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="compass-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.navigationButtonText}>
+                    🗺️ Ver ubicación en GPS (Google Maps / Waze)
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
         </View>
@@ -204,5 +225,21 @@ const styles = StyleSheet.create({
   commentsValue: {
     fontSize: 14,
     color: "#1E293B",
+  },
+  navigationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#0284C7",
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  navigationButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

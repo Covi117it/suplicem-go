@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AddressPicker from "@/components/AddressPicker";
 import { Palette } from "@/constants/theme";
 import { Address } from "@/types/users";
+import { combineFullAddress } from "@/utils/addressFormatter";
 
 type ProfileAddressesCardProps = {
   isEditing: boolean;
@@ -99,8 +100,7 @@ export const ProfileAddressesCard: React.FC<ProfileAddressesCardProps> = ({
               style={{ marginRight: 8 }}
             />
             <Text style={styles.addressText}>
-              {address?.description}
-              {address?.additionalInfo && `, ${address.additionalInfo}`}
+              {combineFullAddress(address?.description || "", address?.additionalInfo)}
             </Text>
           </View>
         ))

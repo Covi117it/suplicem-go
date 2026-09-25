@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
-import MapView, { Marker, UrlTile } from "react-native-maps";
+import { View, Text, StyleSheet, Image, Platform } from "react-native";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { calculateTripEstimate, WAREHOUSE_LOCATION } from "@/utils/tripEstimate";
 
 interface ClientOrderMapProps {
   driverLocation: { latitude: number; longitude: number } | null;
@@ -15,67 +16,102 @@ export const ClientOrderMap: React.FC<ClientOrderMapProps> = ({
   deliveries,
   orderId,
 }) => {
+  const firstDelivery = deliveries?.find(
+    (d: any) => d?.address?.latitude && d?.address?.longitude
+  );
+
+  const originCoords = driverLocation || WAREHOUSE_LOCATION;
+  const destCoords = firstDelivery?.address
+    ? {
+        latitude: Number(firstDelivery.address.latitude),
+        longitude: Number(firstDelivery.address.longitude),
+      }
+    : null;
+
+  const estimate = destCoords
+    ? calculateTripEstimate(originCoords, destCoords)
+    : null;
+
   const shouldShowMap =
-    Boolean(driverLocation) &&
-    Boolean(trip?.assignedDriverId || trip?.driver) &&
-    (trip?.status === "accepted" ||
+    Boolean(destCoords) &&
+    (Boolean(driverLocation) ||
+      trip?.status === "accepted" ||
       trip?.status === "started" ||
       trip?.status === "in_progress");
 
-  if (!shouldShowMap || !driverLocation) return null;
+  if (!shouldShowMap) return null;
+
+  const centerLat = originCoords.latitude;
+  const centerLng = originCoords.longitude;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Ubicación actual del camión</Text>
+      <Text style={styles.sectionTitle}>Seguimiento y Ruta del Pedido</Text>
+
+      {/* Banner de estimación de tiempo y puntos */}
+      {estimate && (
+        <View style={styles.estimateBanner}>
+          <View style={styles.estimateHeader}>
+            <Text style={styles.estimateTitle}>⏱️ Tiempo estimado de llegada:</Text>
+            <Text style={styles.estimateValue}>{estimate.formattedText}</Text>
+          </View>
+          <Text style={styles.estimateRouteText}>
+            🏢 Partida: {driverLocation ? "Camión en camino" : WAREHOUSE_LOCATION.name}
+            {"\n"}📍 Llegada: {firstDelivery?.address?.description || "Dirección del cliente"}
+          </Text>
+        </View>
+      )}
+
       <MapView
+        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
         style={styles.map}
-        mapType="none"
         initialRegion={{
-          latitude: driverLocation.latitude,
-          longitude: driverLocation.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitude: centerLat,
+          longitude: centerLng,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
         }}
       >
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-          flipY={false}
-          zIndex={-1}
-        />
-        <Marker
-          coordinate={driverLocation}
-          title="Camión"
-          description="Ubicación actual"
-        >
-          <Image
-            source={require("@/assets/images/camion.png")}
-            style={{ width: 40, height: 40 }}
-            resizeMode="contain"
+        {/* Punto de Partida: Almacén u Ubicación actual del camión */}
+        {driverLocation ? (
+          <Marker coordinate={driverLocation} title="🏢 Camión en ruta" description="Ubicación del chofer">
+            <Image
+              source={require("@/assets/images/camion.png")}
+              style={{ width: 42, height: 42 }}
+              resizeMode="contain"
+            />
+          </Marker>
+        ) : (
+          <Marker
+            coordinate={WAREHOUSE_LOCATION}
+            title="🏢 Punto de Partida"
+            description={WAREHOUSE_LOCATION.name}
+            pinColor="blue"
           />
-        </Marker>
+        )}
 
-        {deliveries?.map((delivery: any, index: number) => {
-          if (delivery?.address?.latitude && delivery?.address?.longitude) {
-            return (
-              <Marker
-                key={`${orderId || "del"}-${index}`}
-                coordinate={{
-                  latitude: delivery.address.latitude,
-                  longitude: delivery.address.longitude,
-                }}
-                title="📍 Punto de entrega"
-                description={`${delivery.address.description || ""}${
-                  delivery.address.additionalInfo
-                    ? `, ${delivery.address.additionalInfo}`
-                    : ""
-                }`}
-                pinColor="green"
-              />
-            );
-          }
-          return null;
-        })}
+        {/* Punto de Llegada: Dirección del cliente */}
+        {destCoords && (
+          <Marker
+            coordinate={destCoords}
+            title="📍 Punto de Llegada"
+            description={firstDelivery?.address?.description || "Su dirección de entrega"}
+            pinColor="red"
+          />
+        )}
+
+        {/* Línea de ruta entre Partida y Llegada */}
+        {destCoords && (
+          <Polyline
+            coordinates={[
+              { latitude: originCoords.latitude, longitude: originCoords.longitude },
+              { latitude: destCoords.latitude, longitude: destCoords.longitude },
+            ]}
+            strokeColor="#E31E24"
+            strokeWidth={4}
+            lineDashPattern={[5, 5]}
+          />
+        )}
       </MapView>
     </View>
   );
@@ -91,9 +127,38 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: "#0F294A",
   },
+  estimateBanner: {
+    backgroundColor: "#F0F7FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  estimateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  estimateTitle: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#1E40AF",
+  },
+  estimateValue: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#E31E24",
+  },
+  estimateRouteText: {
+    fontSize: 12,
+    color: "#334155",
+    lineHeight: 18,
+  },
   map: {
     width: "100%",
-    height: 250,
+    height: 260,
     borderRadius: 12,
   },
 });

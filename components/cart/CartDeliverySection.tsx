@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AddressPicker from "@/components/AddressPicker";
 import { Palette } from "@/constants/theme";
 import { Address } from "@/types/users";
+import { combineFullAddress } from "@/utils/addressFormatter";
 
 export type DeliveryItem = {
   address: Address;
@@ -225,7 +226,7 @@ export const CartDeliverySection: React.FC<CartDeliverySectionProps> = ({
                           ]}
                           numberOfLines={2}
                         >
-                          {addr.description}
+                          {combineFullAddress(addr.description, addr.additionalInfo)}
                         </Text>
                         {index === 0 && (
                           <View style={styles.primaryBadge}>
@@ -233,11 +234,6 @@ export const CartDeliverySection: React.FC<CartDeliverySectionProps> = ({
                           </View>
                         )}
                       </View>
-                      {Boolean(addr.additionalInfo) && (
-                        <Text style={styles.addressAdditional}>
-                          📍 {addr.additionalInfo}
-                        </Text>
-                      )}
                     </View>
                   </TouchableOpacity>
                 );
@@ -302,13 +298,8 @@ export const CartDeliverySection: React.FC<CartDeliverySectionProps> = ({
                 </Text>
               </View>
               <Text style={styles.confirmedAddressText}>
-                📍 {selectedAddress.description}
+                📍 {combineFullAddress(selectedAddress.description, selectedAddress.additionalInfo)}
               </Text>
-              {Boolean(selectedAddress.additionalInfo) && (
-                <Text style={styles.confirmedAdditionalText}>
-                  ℹ️ {selectedAddress.additionalInfo}
-                </Text>
-              )}
             </View>
           )}
         </View>

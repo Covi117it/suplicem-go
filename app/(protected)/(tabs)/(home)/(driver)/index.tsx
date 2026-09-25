@@ -2,6 +2,7 @@ import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import {
+  aceptedTrip,
   getDriverActiveTrip,
   getTripAvailable,
 } from "@/services/tripsService";
@@ -235,24 +236,39 @@ const DriverHomeScreen = () => {
               </View>
             ) : null}
 
-            <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: "#0F294A" },
-                hasAcceptedTrip && styles.disabledButton,
-              ]}
-              disabled={hasAcceptedTrip}
-              activeOpacity={0.8}
-              onPress={() => {
-                router.push({
-                  pathname: "/driver-trip-preview",
-                  params: { tripId: trip.id },
-                });
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={styles.cardActionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.acceptCardButton,
+                  hasAcceptedTrip && styles.disabledButton,
+                ]}
+                disabled={hasAcceptedTrip}
+                activeOpacity={0.8}
+                onPress={async () => {
+                  try {
+                    show();
+                    const res = await aceptedTrip(trip.id);
+                    if (res?.success) {
+                      saveTrip({ ...trip, status: "accepted" } as any);
+                      router.push("/driver-order");
+                    } else {
+                      router.push({
+                        pathname: "/driver-trip-preview",
+                        params: { tripId: trip.id },
+                      });
+                    }
+                  } catch (e) {
+                    router.push({
+                      pathname: "/driver-trip-preview",
+                      params: { tripId: trip.id },
+                    });
+                  } finally {
+                    hide();
+                  }
+                }}
+              >
                 <Ionicons
-                  name={hasAcceptedTrip ? "lock-closed-outline" : "eye-outline"}
+                  name={hasAcceptedTrip ? "lock-closed-outline" : "checkmark-circle"}
                   size={18}
                   color={hasAcceptedTrip ? "#94A3B8" : "#fff"}
                 />
@@ -262,10 +278,39 @@ const DriverHomeScreen = () => {
                     hasAcceptedTrip && styles.disabledButtonText,
                   ]}
                 >
-                  Ver detalle del viaje
+                  Aceptar Viaje
                 </Text>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.detailCardButton,
+                  hasAcceptedTrip && styles.disabledButton,
+                ]}
+                disabled={hasAcceptedTrip}
+                activeOpacity={0.8}
+                onPress={() => {
+                  router.push({
+                    pathname: "/driver-trip-preview",
+                    params: { tripId: trip.id },
+                  });
+                }}
+              >
+                <Ionicons
+                  name="eye-outline"
+                  size={18}
+                  color={hasAcceptedTrip ? "#94A3B8" : "#0F294A"}
+                />
+                <Text
+                  style={[
+                    styles.detailButtonText,
+                    hasAcceptedTrip && styles.disabledButtonText,
+                  ]}
+                >
+                  Ver Detalle
+                </Text>
+              </TouchableOpacity>
+            </View>
             {hasAcceptedTrip && (
               <Text style={styles.disabledTripNotice}>
                 Ya tienes un viaje aceptado o en curso
@@ -496,5 +541,37 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     fontWeight: "500",
+  },
+  cardActionsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
+  },
+  acceptCardButton: {
+    flex: 1.2,
+    backgroundColor: "#16A34A",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  detailCardButton: {
+    flex: 1,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  detailButtonText: {
+    color: "#0F294A",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });

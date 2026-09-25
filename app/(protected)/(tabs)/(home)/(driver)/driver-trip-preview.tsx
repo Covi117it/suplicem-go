@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { InfoRow } from "@/components/InfoRow";
+import { DriverTripMap } from "@/components/driver/DriverTripMap";
 import { Palette } from "@/constants/theme";
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { useAlert } from "@/context/alertContext";
@@ -22,6 +23,7 @@ import { useLoading } from "@/context/loadingContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import { aceptedTrip, getTripDetail } from "@/services/tripsService";
 import { formatRD } from "@/utils/currencyUtils";
+import { openExternalNavigation } from "@/utils/navigationUtils";
 
 export default function DriverTripPreviewScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
@@ -269,23 +271,53 @@ export default function DriverTripPreviewScreen() {
             <View style={[styles.subSection, { borderBottomWidth: 0 }]}>
               <Text style={styles.subSectionTitle}>Dirección de Entrega</Text>
               {order.deliveries?.map((delivery: any, dIdx: number) => (
-                <View key={dIdx} style={styles.deliveryRow}>
-                  <Ionicons name="location-sharp" size={18} color="#E31E24" />
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={styles.deliveryAddressText}>
-                      {delivery.address?.description || "Dirección no especificada"}
-                    </Text>
-                    {Boolean(delivery.address?.additionalInfo) && (
-                      <Text style={styles.deliveryExtraText}>
-                        Ref: {delivery.address.additionalInfo}
+                <View key={dIdx} style={{ marginBottom: 8 }}>
+                  <View style={styles.deliveryRow}>
+                    <Ionicons name="location-sharp" size={18} color="#E31E24" />
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.deliveryAddressText}>
+                        {delivery.address?.description || "Dirección no especificada"}
                       </Text>
-                    )}
+                      {Boolean(delivery.address?.additionalInfo) && (
+                        <Text style={styles.deliveryExtraText}>
+                          Ref: {delivery.address.additionalInfo}
+                        </Text>
+                      )}
+                    </View>
                   </View>
+
+                  {delivery.address?.latitude && delivery.address?.longitude && (
+                    <TouchableOpacity
+                      style={styles.navigationButton}
+                      onPress={() =>
+                        openExternalNavigation({
+                          latitude: Number(delivery.address.latitude),
+                          longitude: Number(delivery.address.longitude),
+                          label: `${order.userNames || ""} - ${delivery.address?.description || "Destino"}`,
+                        })
+                      }
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="compass-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.navigationButtonText}>
+                        🗺️ Navegar con GPS (Google Maps / Waze)
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ))}
             </View>
           </View>
         ))}
+
+        {/* Mapa Interactivo y Ruta Estimada */}
+        <View style={{ marginTop: 16 }}>
+          <Text style={styles.sectionTitle}>Ruta del Viaje y Tiempo Estimado</Text>
+          <DriverTripMap
+            orders={trip.orders}
+            tripStatus={trip.status || "created"}
+          />
+        </View>
       </ScrollView>
 
       {/* Botón inferior fijo para Aceptar el Viaje */}
@@ -586,5 +618,21 @@ const styles = StyleSheet.create({
   },
   disabledAcceptButtonText: {
     color: "#94A3B8",
+  },
+  navigationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#0284C7",
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  navigationButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

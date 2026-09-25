@@ -138,8 +138,8 @@ const CartScreen: React.FC = () => {
       const newAddr: Address = {
         placeId: place.placeId || `custom-${Date.now()}`,
         description: place.description,
-        latitude: place.latitude || 18.4861,
-        longitude: place.longitude || -69.9312,
+        latitude: place.latitude ?? 0,
+        longitude: place.longitude ?? 0,
         additionalInfo: customAdditionalInfo.trim(),
       };
       setSelectedAddress(newAddr);
