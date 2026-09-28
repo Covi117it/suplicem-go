@@ -20,3 +20,9 @@ export const getCurrentUser = async (token: string) => {
     })
   );
 };
+
+export const resendVerificationEmail = async (email: string, idToken?: string) => {
+  return await safeRequest(() =>
+    api.post("/auth/resend-verification", { email, idToken })
+  );
+};
