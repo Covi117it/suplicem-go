@@ -34,11 +34,20 @@ export async function refreshAccessToken(): Promise<string | null> {
 
     await saveAuthSession(newSession);
     return token;
-  } catch (error) {
-    console.warn("Error al renovar sesión con el Refresh Token:", error);
-    await handleSessionExpired();
-    return null;
+      } catch (error: any) {
+    console.warn("Fallo al renovar sesión con el Refresh Token:", error?.message || error);
+  
+    const isAuthRejection =
+      axios.isAxiosError(error) &&
+      error.response &&
+      (error.response.status === 400 || error.response.status === 401 || error.response.status === 403);
+    if (isAuthRejection) {
+      await handleSessionExpired();
+      return null;
+    }
+    return session.token || null;
   }
+
 }
 
 
