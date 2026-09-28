@@ -1,10 +1,10 @@
 import { useContext, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { useAlert } from "@/context/alertContext";
-import { getCurrentUser, login, recoverPassword } from "@/services/authService";
+import { getCurrentUser, login, recoverPassword, resendVerificationEmail } from "@/services/authService";
 import {
   saveAuthSession,
   saveAcceptedTerms,
@@ -24,6 +24,10 @@ export const useLogin = () => {
   // Modal de recuperación
   const [modalVisible, setModalVisible] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState("");
+
+  // Modal de reenvío de verificación
+  const [resendModalVisible, setResendModalVisible] = useState(false);
+  const [resendEmail, setResendEmail] = useState("");
 
   // Modal de Términos y Condiciones
   const [termsDisclaimerVisible, setTermsDisclaimerVisible] = useState(false);
@@ -77,9 +81,10 @@ export const useLogin = () => {
         }
 
         if (!responseLogin?.data?.emailVerified) {
+          setResendEmail(email);
           showAlert({
             message:
-              "Aún no has verificado tu cuenta. Por favor, revisa tu correo electrónico y haz clic en el enlace de verificación para activar tu cuenta.",
+              "Aún no has verificado tu cuenta. Revisa tu correo o presiona 'Reenviar' abajo si no recibiste el enlace.",
             type: "info",
           });
           hide();
@@ -192,6 +197,36 @@ export const useLogin = () => {
     hide();
   };
 
+  const handleResendVerification = async () => {
+    const targetEmail = resendEmail.trim();
+    if (!targetEmail) {
+      showAlert({
+        message: "Por favor, ingrese su correo electrónico",
+        type: "error",
+      });
+      return;
+    }
+
+    show();
+    const response = await resendVerificationEmail(targetEmail);
+    hide();
+
+    if (response?.data?.success) {
+      showAlert({
+        message:
+          "Se ha enviado un nuevo enlace de activación a tu correo. Revisa tu bandeja de entrada o spam.",
+        type: "success",
+      });
+      setResendModalVisible(false);
+    } else {
+      showAlert({
+        message:
+          response?.data?.message || "Error al reenviar el correo de verificación.",
+        type: "error",
+      });
+    }
+  };
+
   return {
     email,
     setEmail,
@@ -203,6 +238,10 @@ export const useLogin = () => {
     setModalVisible,
     recoveryEmail,
     setRecoveryEmail,
+    resendModalVisible,
+    setResendModalVisible,
+    resendEmail,
+    setResendEmail,
     termsDisclaimerVisible,
     hasScrolledToBottom,
     isCheckedAccepted,
@@ -212,5 +251,6 @@ export const useLogin = () => {
     handleDeclineTerms,
     handleScrollTerms,
     handlePasswordReset,
+    handleResendVerification,
   };
 };

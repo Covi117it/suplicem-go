@@ -18,6 +18,7 @@ interface LoginFormProps {
   onToggleShowPassword: () => void;
   onLogin: () => void;
   onOpenForgotPassword: () => void;
+  onOpenResendVerification: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
@@ -29,6 +30,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   onToggleShowPassword,
   onLogin,
   onOpenForgotPassword,
+  onOpenResendVerification,
 }) => {
   const router = useRouter();
 
@@ -93,6 +95,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         onPress={onOpenForgotPassword}
       >
         <Text style={styles.linkText}>¿Olvidaste tu contraseña?</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.linkButton}
+        onPress={onOpenResendVerification}
+      >
+        <Text style={styles.linkText}>¿No recibiste el correo de verificación? Reenviar</Text>
       </TouchableOpacity>
 
       <View style={styles.termsContainer}>

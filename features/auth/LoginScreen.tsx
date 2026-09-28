@@ -9,6 +9,7 @@ import { useLogin } from "./hooks/useLogin";
 import { LoginHeader } from "./components/LoginHeader";
 import { LoginForm } from "./components/LoginForm";
 import { ForgotPasswordModal } from "./components/ForgotPasswordModal";
+import { ResendVerificationModal } from "./components/ResendVerificationModal";
 import { TermsDisclaimerModal } from "./components/TermsDisclaimerModal";
 
 export const LoginScreen: React.FC = () => {
@@ -23,6 +24,10 @@ export const LoginScreen: React.FC = () => {
     setModalVisible,
     recoveryEmail,
     setRecoveryEmail,
+    resendModalVisible,
+    setResendModalVisible,
+    resendEmail,
+    setResendEmail,
     termsDisclaimerVisible,
     hasScrolledToBottom,
     isCheckedAccepted,
@@ -32,6 +37,7 @@ export const LoginScreen: React.FC = () => {
     handleDeclineTerms,
     handleScrollTerms,
     handlePasswordReset,
+    handleResendVerification,
   } = useLogin();
 
   return (
@@ -56,6 +62,10 @@ export const LoginScreen: React.FC = () => {
           onToggleShowPassword={() => setShowPassword(!showPassword)}
           onLogin={handleLogin}
           onOpenForgotPassword={() => setModalVisible(true)}
+          onOpenResendVerification={() => {
+            setResendEmail(email || "");
+            setResendModalVisible(true);
+          }}
         />
 
         <ForgotPasswordModal
@@ -64,6 +74,14 @@ export const LoginScreen: React.FC = () => {
           onChangeEmail={setRecoveryEmail}
           onSubmit={handlePasswordReset}
           onClose={() => setModalVisible(false)}
+        />
+
+        <ResendVerificationModal
+          visible={resendModalVisible}
+          email={resendEmail}
+          onChangeEmail={setResendEmail}
+          onSubmit={handleResendVerification}
+          onClose={() => setResendModalVisible(false)}
         />
 
         <TermsDisclaimerModal
