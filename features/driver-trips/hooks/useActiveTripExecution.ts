@@ -21,7 +21,7 @@ export const useActiveTripExecution = () => {
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
 
-  const { location } = useDriverLocationTracking(trip?.status);
+const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?.status);
 
   const [expandedOrderIndex, setExpandedOrderIndex] = useState<number | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
@@ -109,6 +109,7 @@ export const useActiveTripExecution = () => {
       show();
       const response = await startOrCancelrip(trip.id, "available");
       if (response.success) {
+        stopDriverLocationTracking();
         await stopBackgroundLocationUpdates();
         clearTrip();
         showAlert({ message: "El viaje se ha cancelado correctamente.", type: "success" });
@@ -151,8 +152,10 @@ export const useActiveTripExecution = () => {
       show();
       const response = await updateTripStatus(trip.id, "completed");
       if (response.success) {
+       stopDriverLocationTracking();
         await stopBackgroundLocationUpdates();
         clearTrip();
+
         showAlert({ message: response.message || "Viaje completado. Gracias por tu trabajo.", type: "success" });
         navigateBack();
       } else {
