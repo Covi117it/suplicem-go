@@ -38,28 +38,37 @@ export const getOrderDetail = async (id: string) => {
   return { success: false, order: null, message: result.message };
 };
 
-export const createOrder = async (order: {
-  deliveryType: string;
-  deliveries?: {
-    productId: string;
-    address?: Address;
-    quantity: number;
-    unit?: string;
-  }[];
-  items: {
-    productId: string;
-    quantity: number;
-    name?: string;
-    unit?: string;
-    unitPrice?: number;
-    subtotal?: number;
-  }[];
-  paymentMethod?: "transfer" | "credit"; 
-  bankAccountId?: string;             
-  creditNote?: string;               
-  comments?: string;
-  receiptImage?: string;
-}) => {
+export const createOrder = async (
+  order: {
+    deliveryType: string;
+    deliveries?: {
+      productId: string;
+      address?: Address;
+      quantity: number;
+      unit?: string;
+    }[];
+    items: {
+      productId: string;
+      quantity: number;
+      name?: string;
+      unit?: string;
+      unitPrice?: number;
+      subtotal?: number;
+    }[];
+    paymentMethod?: "transfer" | "credit"; 
+    bankAccountId?: string;             
+    creditNote?: string;               
+    comments?: string;
+    receiptImage?: string;
+    idempotencyKey?: string;
+  },
+  idempotencyKey?: string
+) => {
+  const resolvedKey = idempotencyKey || order.idempotencyKey;
+  const commonHeaders: Record<string, string> = resolvedKey
+    ? { "Idempotency-Key": resolvedKey }
+    : {};
+
   // Si viene una imagen local enviar como multipart/form-data
   if (order.receiptImage && !order.receiptImage.startsWith("http")) {
     const formData = new FormData();
@@ -78,6 +87,7 @@ export const createOrder = async (order: {
       protectedApi.post("/orders", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
+          ...commonHeaders,
         },
       })
     );
@@ -85,7 +95,11 @@ export const createOrder = async (order: {
   }
 
   // Si no hay imagen o ya es una URL, enviar petición JSON normal
-  const result = await safeRequest(() => protectedApi.post("/orders", order));
+  const result = await safeRequest(() =>
+    protectedApi.post("/orders", order, {
+      headers: commonHeaders,
+    })
+  );
   return result.success ? result.data : { success: false, message: result.message };
 };
 

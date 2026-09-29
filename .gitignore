@@ -46,6 +46,10 @@ app-example
 # AI Agent memory & rules
 GEMINI.md
 gemini.md
+AGENTS.md
+agents.md
+AGENT.md
+agent.md
 
 # Tests & Coverage
 test/
