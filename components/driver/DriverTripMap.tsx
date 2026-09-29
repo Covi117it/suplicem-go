@@ -65,7 +65,12 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
       >
         {/* Punto de Partida: Ubicación del camión o Almacén */}
         {location ? (
-          <Marker coordinate={location} title="🏢 Tu ubicación actual" description="Ubicación del chofer">
+          <Marker
+            key="marker-driver-location"
+            coordinate={location}
+            title="🏢 Tu ubicación actual"
+            description="Ubicación del chofer"
+          >
             <Image
               source={require("@/assets/images/camion.png")}
               style={styles.truckIcon}
@@ -74,10 +79,11 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
           </Marker>
         ) : (
           <Marker
+            key="marker-warehouse-fallback"
             coordinate={WAREHOUSE_LOCATION}
             title="🏢 Punto de Partida"
             description={WAREHOUSE_LOCATION.name}
-            pinColor="blue"
+            pinColor="#2563EB"
           />
         )}
 
@@ -87,7 +93,7 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
             if (delivery?.address?.latitude && delivery?.address?.longitude) {
               return (
                 <Marker
-                  key={`${order.id}-${index}`}
+                  key={`marker-delivery-${order.id}-${index}`}
                   coordinate={{
                     latitude: Number(delivery.address.latitude),
                     longitude: Number(delivery.address.longitude),
@@ -98,7 +104,7 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
                       ? `, ${delivery.address.additionalInfo}`
                       : ""
                   }`}
-                  pinColor="red"
+                  pinColor="#DC2626"
                 />
               );
             }

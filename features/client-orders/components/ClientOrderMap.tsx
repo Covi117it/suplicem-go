@@ -74,7 +74,12 @@ export const ClientOrderMap: React.FC<ClientOrderMapProps> = ({
       >
         {/* Punto de Partida: Almacén u Ubicación actual del camión */}
         {driverLocation ? (
-          <Marker coordinate={driverLocation} title="🏢 Camión en ruta" description="Ubicación del chofer">
+          <Marker
+            key="client-map-truck"
+            coordinate={driverLocation}
+            title="🏢 Camión en ruta"
+            description="Ubicación del chofer"
+          >
             <Image
               source={require("@/assets/images/camion.png")}
               style={{ width: 42, height: 42 }}
@@ -83,20 +88,22 @@ export const ClientOrderMap: React.FC<ClientOrderMapProps> = ({
           </Marker>
         ) : (
           <Marker
+            key="client-map-warehouse"
             coordinate={WAREHOUSE_LOCATION}
             title="🏢 Punto de Partida"
             description={WAREHOUSE_LOCATION.name}
-            pinColor="blue"
+            pinColor="#2563EB"
           />
         )}
 
         {/* Punto de Llegada: Dirección del cliente */}
         {destCoords && (
           <Marker
+            key="client-map-destination"
             coordinate={destCoords}
             title="📍 Punto de Llegada"
             description={firstDelivery?.address?.description || "Su dirección de entrega"}
-            pinColor="red"
+            pinColor="#DC2626"
           />
         )}
 

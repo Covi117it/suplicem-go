@@ -337,7 +337,12 @@ const TripDetailScreen: React.FC = () => {
               }}
             >
               {driverLocation ? (
-                <Marker coordinate={driverLocation} title="🏢 Camión en ruta" description="Ubicación actual del chofer">
+                <Marker
+                  key="admin-trip-driver-truck"
+                  coordinate={driverLocation}
+                  title="🏢 Camión en ruta"
+                  description="Ubicación actual del chofer"
+                >
                   <Image
                     source={require("@/assets/images/camion.png")}
                     style={{ width: 42, height: 42 }}
@@ -346,10 +351,11 @@ const TripDetailScreen: React.FC = () => {
                 </Marker>
               ) : (
                 <Marker
+                  key="admin-trip-warehouse-origin"
                   coordinate={WAREHOUSE_LOCATION}
                   title="🏢 Punto de Partida"
                   description={WAREHOUSE_LOCATION.name}
-                  pinColor="blue"
+                  pinColor="#2563EB"
                 />
               )}
 
@@ -362,7 +368,7 @@ const TripDetailScreen: React.FC = () => {
                   ) {
                     return (
                       <Marker
-                        key={`${order.id}-${index}`}
+                        key={`admin-trip-delivery-${order.id}-${index}`}
                         coordinate={{
                           latitude: Number(delivery.address.latitude),
                           longitude: Number(delivery.address.longitude),
@@ -371,7 +377,7 @@ const TripDetailScreen: React.FC = () => {
                         description={`${delivery.address.description || ""}${
                           delivery.address.additionalInfo ? `, ${delivery.address.additionalInfo}` : ""
                         }`}
-                        pinColor="red"
+                        pinColor="#DC2626"
                       />
                     );
                   }

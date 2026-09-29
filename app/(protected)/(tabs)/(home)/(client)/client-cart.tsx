@@ -251,8 +251,14 @@ const CartScreen: React.FC = () => {
       dataToSend.receiptImage = receiptImage;
     }
 
+    const idempotencyKey =
+      (globalThis as any).crypto?.randomUUID
+        ? (globalThis as any).crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
     try {
-      const response = await createOrder(dataToSend);
+      console.log(`[Checkout] Enviando pedido con Idempotency-Key: ${idempotencyKey}`);
+      const response = await createOrder(dataToSend, idempotencyKey);
       hide();
 
       showAlert({
