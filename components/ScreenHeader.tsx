@@ -48,7 +48,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
         )}
         <View>
           <Text style={styles.title}>{title}</Text>
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          {Boolean(subtitle) && <Text style={styles.subtitle}>{subtitle}</Text>}
         </View>
       </View>
 

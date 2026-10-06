@@ -25,6 +25,13 @@ import { aceptedTrip, getTripDetail } from "@/services/tripsService";
 import { formatRD } from "@/utils/currencyUtils";
 import { openExternalNavigation } from "@/utils/navigationUtils";
 
+const hasValidGPS = (address?: any): boolean => {
+  if (!address?.latitude || !address?.longitude) return false;
+  const lat = Number(address.latitude);
+  const lng = Number(address.longitude);
+  return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+};
+
 export default function DriverTripPreviewScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
   const router = useRouter();
@@ -286,7 +293,7 @@ export default function DriverTripPreviewScreen() {
                     </View>
                   </View>
 
-                  {delivery.address?.latitude && delivery.address?.longitude && (
+                  {Boolean(hasValidGPS(delivery?.address)) && (
                     <TouchableOpacity
                       style={styles.navigationButton}
                       onPress={() =>
