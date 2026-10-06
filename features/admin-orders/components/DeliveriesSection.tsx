@@ -116,15 +116,7 @@ export const DeliveriesSection: React.FC<DeliveriesSectionProps> = ({
         {isEditing && editedDeliveryType === "domicilio" && (
           <View style={styles.addDeliveryButtonsContainer}>
             <TouchableOpacity
-              style={styles.addDeliveryButton}
-              onPress={onAddDelivery}
-            >
-              <Ionicons name="add-circle-outline" size={20} color="#fff" />
-              <Text style={styles.addDeliveryButtonText}>Agregar Entrega</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.newAddressButton}
+              style={[styles.newAddressButton, { flex: 1 }]}
               onPress={onOpenNewAddressModal}
             >
               <Ionicons name="location-outline" size={20} color="#fff" />

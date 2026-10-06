@@ -9,7 +9,7 @@ import { createUserAccount } from "@/services/userService";
 import { RegisterFormData } from "@/types/users";
 import { registerSchema } from "@/validations/registerSchema";
 import { pickAndCompressImage } from "@/utils/imageUtils";
-import { saveAuthSession } from "@/utils/authStorage";
+import { saveAuthSession, saveAcceptedTerms } from "@/utils/authStorage";
 
 export const useRegister = () => {
   const authContext = useContext(AuthContext);
@@ -17,6 +17,7 @@ export const useRegister = () => {
   const { showAlert } = useAlert();
   const router = useRouter();
   const [identificationImage, setIdentificationImage] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const {
     control,
@@ -87,6 +88,14 @@ export const useRegister = () => {
   };
 
   const onSubmit = async (data: RegisterFormData) => {
+    if (!acceptedTerms) {
+      showAlert({
+        message: "Debes aceptar los Términos y Condiciones y la Política de Privacidad para registrarte.",
+        type: "warning",
+      });
+      return;
+    }
+
     if (!identificationImage) {
       showAlert({
         message: "Debes adjuntar la foto de tu cédula o pasaporte para la verificación de cuenta por el administrador.",
@@ -122,6 +131,9 @@ export const useRegister = () => {
             expiresAt: now + parseInt(regData.expiresIn || "3600") * 1000,
           };
           await saveAuthSession(newSession);
+          if (regData.user.uid) {
+            await saveAcceptedTerms(regData.user.uid);
+          }
           authContext.logIn(regData.user);
         }
 
@@ -171,5 +183,7 @@ export const useRegister = () => {
     addAddress,
     removeAddress,
     onSubmit,
+    acceptedTerms,
+    setAcceptedTerms,
   };
 };

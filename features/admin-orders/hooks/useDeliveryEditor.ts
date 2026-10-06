@@ -30,24 +30,53 @@ export const useDeliveryEditor = (
     setNewAddressData,
     handleAddNewAddress,
     documentTypeOptions,
-  } = useNewDeliveryAddress((createdAddress) => {
-    const targetUserUid = order?.userId || "";
-    const newAddress: Address = {
-      ...createdAddress,
-      userUid: targetUserUid,
-    };
+  } = useNewDeliveryAddress(
+    (createdAddress) => {
+      const targetUserUid = order?.userId || "";
+      const newAddress: Address = {
+        ...createdAddress,
+        userUid: targetUserUid,
+      };
 
-    const newDelivery: OrderDelivery = {
-      id: generateTempDeliveryId(),
-      productId: "",
-      quantity: 0,
-      unit: "fundas",
-      address: newAddress,
-      availableAddresses: [newAddress],
-    };
+      setEditedDeliveries((prev) => {
+        if (prev.length === 0) {
+          const defaultProduct = order?.items?.[0];
+          return [
+            {
+              id: generateTempDeliveryId(),
+              productId: defaultProduct?.productId || "",
+              quantity: defaultProduct?.quantity || 0,
+              unit: defaultProduct?.unit || "fundas",
+              address: newAddress,
+              availableAddresses: [newAddress],
+            },
+          ];
+        }
 
-    setEditedDeliveries((prev) => [...prev, newDelivery]);
-  });
+        return prev.map((del) => {
+          const currentAvailable = del.availableAddresses || [];
+          const exists = currentAvailable.some(
+            (addr) => addr.placeId === newAddress.placeId
+          );
+          const updatedAddresses = exists
+            ? currentAvailable
+            : [newAddress, ...currentAvailable];
+
+          return {
+            ...del,
+            address: newAddress,
+            availableAddresses: updatedAddresses,
+          };
+        });
+      });
+    },
+    {
+      recipientName: `${order?.userNames || ""} ${order?.userLastNames || ""}`.trim(),
+      recipientDocument: (order as any)?.userDocument || "",
+      recipientDocumentType: (order as any)?.identificationType || "Cédula",
+      userUid: order?.userId || "",
+    }
+  );
 
   const handleEdit = () => {
     if (!order) {
@@ -168,29 +197,52 @@ export const useDeliveryEditor = (
     }
   };
 
-  const addDelivery = () => {
+      const addDelivery = () => {
+    if (!order) return;
+
+    // 1. Buscar el primer producto que aún tenga balance pendiente por asignar
+    const productWithBalance = (order.items || []).find((item) => {
+      const allocated = editedDeliveries.reduce((sum, d) => {
+        return d.productId === item.productId ? sum + (Number(d.quantity) || 0) : sum;
+      }, 0);
+      return (Number(item.quantity) || 0) - allocated > 0;
+    });
+
+    const defaultProduct = productWithBalance || order.items?.[0];
+    const defaultProductId = defaultProduct?.productId || "";
+    const defaultUnit = defaultProduct?.unit || "fundas";
+
+    // 2. Pre-vincular los datos del cliente de la orden
+    const clientSavedAddresses =
+      order.clientAddresses || (order as any).userAddresses || [];
+
+    const defaultAddress = clientSavedAddresses[0] || {
+      placeId: "",
+      description: "",
+      latitude: 0,
+      longitude: 0,
+      additionalInfo: "",
+      recipientName: `${order.userNames || ""} ${order.userLastNames || ""}`.trim(),
+      recipientDocument: (order as any).userDocument || "",
+      recipientDocumentType: (order as any).identificationType || "Cédula",
+      userUid: order.userId || "",
+    };
+
     const newDelivery: OrderDelivery = {
       id: generateTempDeliveryId(),
-      productId: "",
+      productId: defaultProductId,
       address: {
-        placeId: "",
-        description: "",
-        latitude: 0,
-        longitude: 0,
-        additionalInfo: "",
-        recipientName: "",
-        recipientDocument: "",
-        recipientDocumentType: "",
-        userUid: "",
+        ...defaultAddress,
+        userUid: order.userId || "",
       },
       quantity: 0,
-      unit: "fundas",
+      unit: defaultUnit,
       delivered: false,
     };
 
     setEditedDeliveries((prev) => [...prev, newDelivery]);
   };
-
+  
   const updateDelivery = (id: string, values: Partial<OrderDelivery>) => {
     setEditedDeliveries((prev) =>
       prev.map((del) => (del.id === id ? { ...del, ...values } : del))

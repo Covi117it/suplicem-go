@@ -2,8 +2,8 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import CheckRender from "@/components/CheckRender";
-import InfoRow from "@/components/InfoRow";
-import StatusBadge from "@/components/StatusBadge";
+import { InfoRow } from "@/components/InfoRow";
+import { StatusBadge } from "@/components/StatusBadge";
 import { ORDER_PREFIX } from "@/constants/UserConstants";
 import { Palette } from "@/constants/theme";
 import { formatRD } from "@/utils/currencyUtils";
@@ -17,6 +17,13 @@ type DriverTripOrderCardProps = {
   onWhatsapp: (phone: string) => void;
   tripStatus: string;
   onOpenDeliveryModal: (orderId: string, deliveryIndex: number) => void;
+};
+
+const hasValidGPS = (address?: any): boolean => {
+  if (!address?.latitude || !address?.longitude) return false;
+  const lat = Number(address.latitude);
+  const lng = Number(address.longitude);
+  return !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
 };
 
 export const DriverTripOrderCard: React.FC<DriverTripOrderCardProps> = ({
@@ -106,7 +113,7 @@ export const DriverTripOrderCard: React.FC<DriverTripOrderCardProps> = ({
                   - {delivery.quantity} {delivery.unit}
                 </Text>
 
-                {delivery.address?.latitude && delivery.address?.longitude && (
+                {hasValidGPS(delivery?.address) ? (
                   <TouchableOpacity
                     style={styles.navigationButton}
                     onPress={() =>
@@ -123,6 +130,13 @@ export const DriverTripOrderCard: React.FC<DriverTripOrderCardProps> = ({
                       🗺️ Navegar con GPS (Google Maps / Waze)
                     </Text>
                   </TouchableOpacity>
+                ) : (
+                  <View style={styles.noGpsNotice}>
+                    <Ionicons name="information-circle-outline" size={16} color="#B45309" />
+                    <Text style={styles.noGpsNoticeText}>
+                      Sin ubicación GPS fijada. Guiarse por la dirección y referencias.
+                    </Text>
+                  </View>
                 )}
 
                 <CheckRender allowed={delivery.status === "delivered"}>
@@ -263,5 +277,24 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "bold",
+  },
+
+  noGpsNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FEF3C7",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  noGpsNoticeText: {
+    fontSize: 12,
+    color: "#92400E",
+    fontWeight: "500",
+    flex: 1,
   },
 });

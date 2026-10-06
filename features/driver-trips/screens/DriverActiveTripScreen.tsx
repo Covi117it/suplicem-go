@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { InfoRow } from "@/components/InfoRow";
 import { DriverTripMap } from "@/components/driver/DriverTripMap";
@@ -43,18 +43,27 @@ export const DriverActiveTripScreen: React.FC = () => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Ordenes</Text>
-        {trip?.orders?.map((order: any, index: number) => (
-          <DriverTripOrderCard
-            key={index}
-            order={order}
-            isExpanded={expandedOrderIndex === index}
-            onToggle={() => toggleOrder(index)}
-            onCall={handleCallClient}
-            onWhatsapp={handleWhatsapp}
-            tripStatus={trip?.status}
-            onOpenDeliveryModal={handleOpenDeliveryModal}
-          />
-        ))}
+        {!trip?.orders || trip.orders.length === 0 ? (
+          <View style={{ paddingVertical: 12, alignItems: "center" }}>
+            <ActivityIndicator size="small" color={Palette.primary} />
+            <Text style={{ color: "#64748B", fontSize: 13, marginTop: 6 }}>
+              Cargando órdenes del viaje...
+            </Text>
+          </View>
+        ) : (
+          trip.orders.map((order: any, index: number) => (
+            <DriverTripOrderCard
+              key={order?.id || index}
+              order={order}
+              isExpanded={expandedOrderIndex === index}
+              onToggle={() => toggleOrder(index)}
+              onCall={handleCallClient}
+              onWhatsapp={handleWhatsapp}
+              tripStatus={trip?.status}
+              onOpenDeliveryModal={handleOpenDeliveryModal}
+            />
+          ))
+        )}
 
         <View style={{ marginTop: 10 }}>
           <InfoRow

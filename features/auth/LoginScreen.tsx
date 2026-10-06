@@ -10,7 +10,6 @@ import { LoginHeader } from "./components/LoginHeader";
 import { LoginForm } from "./components/LoginForm";
 import { ForgotPasswordModal } from "./components/ForgotPasswordModal";
 import { ResendVerificationModal } from "./components/ResendVerificationModal";
-import { TermsDisclaimerModal } from "./components/TermsDisclaimerModal";
 
 export const LoginScreen: React.FC = () => {
   const {
@@ -28,14 +27,7 @@ export const LoginScreen: React.FC = () => {
     setResendModalVisible,
     resendEmail,
     setResendEmail,
-    termsDisclaimerVisible,
-    hasScrolledToBottom,
-    isCheckedAccepted,
-    setIsCheckedAccepted,
     handleLogin,
-    handleAcceptTerms,
-    handleDeclineTerms,
-    handleScrollTerms,
     handlePasswordReset,
     handleResendVerification,
   } = useLogin();
@@ -82,16 +74,6 @@ export const LoginScreen: React.FC = () => {
           onChangeEmail={setResendEmail}
           onSubmit={handleResendVerification}
           onClose={() => setResendModalVisible(false)}
-        />
-
-        <TermsDisclaimerModal
-          visible={termsDisclaimerVisible}
-          hasScrolledToBottom={hasScrolledToBottom}
-          isCheckedAccepted={isCheckedAccepted}
-          onScrollTerms={handleScrollTerms}
-          onToggleCheckbox={() => setIsCheckedAccepted(!isCheckedAccepted)}
-          onAccept={handleAcceptTerms}
-          onDecline={handleDeclineTerms}
         />
       </ScrollView>
     </KeyboardAvoidingView>

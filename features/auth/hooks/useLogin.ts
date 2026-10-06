@@ -1,15 +1,10 @@
 import { useContext, useState } from "react";
-import { Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { useAlert } from "@/context/alertContext";
 import { getCurrentUser, login, recoverPassword, resendVerificationEmail } from "@/services/authService";
-import {
-  saveAuthSession,
-  saveAcceptedTerms,
-  checkAcceptedTerms,
-} from "@/utils/authStorage";
+import { saveAuthSession } from "@/utils/authStorage";
 
 export const useLogin = () => {
   const authContext = useContext(AuthContext);
@@ -28,15 +23,6 @@ export const useLogin = () => {
   // Modal de reenvío de verificación
   const [resendModalVisible, setResendModalVisible] = useState(false);
   const [resendEmail, setResendEmail] = useState("");
-
-  // Modal de Términos y Condiciones
-  const [termsDisclaimerVisible, setTermsDisclaimerVisible] = useState(false);
-  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
-  const [isCheckedAccepted, setIsCheckedAccepted] = useState(false);
-  const [pendingSessionData, setPendingSessionData] = useState<{
-    session: any;
-    user: any;
-  } | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -98,20 +84,8 @@ export const useLogin = () => {
           expiresAt: now + parseInt(responseLogin?.data?.expiresIn || "3600") * 1000,
         };
 
-        const alreadyAccepted = await checkAcceptedTerms(user.uid);
-
-        if (alreadyAccepted) {
-          await saveAuthSession(newSession);
-          authContext.logIn(user);
-        } else {
-          setPendingSessionData({
-            session: newSession,
-            user,
-          });
-          setHasScrolledToBottom(false);
-          setIsCheckedAccepted(false);
-          setTermsDisclaimerVisible(true);
-        }
+        await saveAuthSession(newSession);
+        authContext.logIn(user);
       } else {
         showAlert({
           message:
@@ -129,42 +103,6 @@ export const useLogin = () => {
     }
 
     hide();
-  };
-
-  const handleAcceptTerms = async () => {
-    if (!pendingSessionData || !hasScrolledToBottom || !isCheckedAccepted) return;
-
-    const session = pendingSessionData;
-    setTermsDisclaimerVisible(false);
-    setPendingSessionData(null);
-
-    if (session.user?.uid) {
-      await saveAcceptedTerms(session.user.uid);
-    }
-    await saveAuthSession(session.session);
-
-    setTimeout(() => {
-      authContext.logIn(session.user);
-    }, Platform.OS === "ios" ? 300 : 50);
-  };
-
-  const handleDeclineTerms = () => {
-    setTermsDisclaimerVisible(false);
-    setPendingSessionData(null);
-    showAlert({
-      message: "Debes aceptar los Términos y Condiciones para poder ingresar a la plataforma Suplicem.",
-      type: "warning",
-    });
-  };
-
-  const handleScrollTerms = (event: any) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const paddingToBottom = 30;
-    const isBottom =
-      layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
-    if (isBottom && !hasScrolledToBottom) {
-      setHasScrolledToBottom(true);
-    }
   };
 
   const handlePasswordReset = async () => {
@@ -242,14 +180,7 @@ export const useLogin = () => {
     setResendModalVisible,
     resendEmail,
     setResendEmail,
-    termsDisclaimerVisible,
-    hasScrolledToBottom,
-    isCheckedAccepted,
-    setIsCheckedAccepted,
     handleLogin,
-    handleAcceptTerms,
-    handleDeclineTerms,
-    handleScrollTerms,
     handlePasswordReset,
     handleResendVerification,
   };

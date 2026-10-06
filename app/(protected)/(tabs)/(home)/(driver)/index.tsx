@@ -5,6 +5,7 @@ import {
   aceptedTrip,
   getDriverActiveTrip,
   getTripAvailable,
+  getTripDetail,
 } from "@/services/tripsService";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -249,7 +250,12 @@ const DriverHomeScreen = () => {
                     show();
                     const res = await aceptedTrip(trip.id);
                     if (res?.success) {
-                      saveTrip({ ...trip, status: "accepted" } as any);
+                      const detailRes = await getTripDetail(trip.id);
+                      const fullTrip =
+                        detailRes?.success && detailRes?.trip
+                          ? detailRes.trip
+                          : { ...trip, status: "accepted" };
+                      saveTrip({ ...fullTrip, status: "accepted" } as any);
                       router.push("/driver-order");
                     } else {
                       router.push({

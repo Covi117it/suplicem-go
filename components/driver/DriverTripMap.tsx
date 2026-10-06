@@ -15,12 +15,34 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
   tripStatus,
 }) => {
 
+  // Validador estricto de coordenadas válidas (evita 0, NaN o valores fuera de rango)
+  const isValidCoord = (lat: any, lng: any): boolean => {
+    if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+    const nLat = Number(lat);
+    const nLng = Number(lng);
+    return (
+      !isNaN(nLat) &&
+      !isNaN(nLng) &&
+      nLat !== 0 &&
+      nLng !== 0 &&
+      nLat >= -90 &&
+      nLat <= 90 &&
+      nLng >= -180 &&
+      nLng <= 180
+    );
+  };
+
   // Buscar primer destino con coordenadas válidas para centrado inicial
   const firstDestination = orders
     ?.flatMap((order: any) => order?.deliveries || [])
-    ?.find((d: any) => d?.address?.latitude && d?.address?.longitude);
+    ?.find((d: any) => isValidCoord(d?.address?.latitude, d?.address?.longitude));
 
-  const originCoords = location || WAREHOUSE_LOCATION;
+  const hasValidDriverLocation = Boolean(
+    location && isValidCoord(location.latitude, location.longitude)
+  );
+
+  const originCoords = hasValidDriverLocation && location ? location : WAREHOUSE_LOCATION;
+
   const destCoords = firstDestination?.address
     ? {
         latitude: Number(firstDestination.address.latitude),
@@ -32,8 +54,8 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
     ? calculateTripEstimate(originCoords, destCoords)
     : null;
 
-  const initialLatitude = location?.latitude || (destCoords ? destCoords.latitude : WAREHOUSE_LOCATION.latitude);
-  const initialLongitude = location?.longitude || (destCoords ? destCoords.longitude : WAREHOUSE_LOCATION.longitude);
+  const initialLatitude = originCoords.latitude;
+  const initialLongitude = originCoords.longitude;
 
   return (
     <View style={styles.container}>
@@ -47,7 +69,7 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
             <Text style={styles.estimateValue}>{estimate.formattedText}</Text>
           </View>
           <Text style={styles.estimateRouteText}>
-            🏢 Partida: {location ? "Ubicación del camión" : WAREHOUSE_LOCATION.name}
+            🏢 Partida: {hasValidDriverLocation ? "Ubicación del camión" : WAREHOUSE_LOCATION.name}
             {"\n"}📍 Llegada: {firstDestination?.address?.description || "Destino del cliente"}
           </Text>
         </View>
@@ -64,7 +86,7 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
         }}
       >
         {/* Punto de Partida: Ubicación del camión o Almacén */}
-        {location ? (
+        {hasValidDriverLocation && location ? (
           <Marker
             key="marker-driver-location"
             coordinate={location}
@@ -90,15 +112,15 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
         {/* Punto de Llegada: Destinos de las órdenes */}
         {orders.map((order: any) =>
           order?.deliveries?.map((delivery: any, index: number) => {
-            if (delivery?.address?.latitude && delivery?.address?.longitude) {
+            if (isValidCoord(delivery?.address?.latitude, delivery?.address?.longitude)) {
               return (
                 <Marker
-                  key={`marker-delivery-${order.id}-${index}`}
+                  key={`marker-delivery-${order.id || index}-${index}`}
                   coordinate={{
                     latitude: Number(delivery.address.latitude),
                     longitude: Number(delivery.address.longitude),
                   }}
-                  title={`📍 Llegada: ${order.userNames || ""} ${order.userLastNames || ""}`}
+                  title={`📍 Llegada: ${order.userNames || ""} ${order.userLastNames || ""}`.trim()}
                   description={`${delivery.address.description || ""}${
                     delivery.address.additionalInfo
                       ? `, ${delivery.address.additionalInfo}`
@@ -113,7 +135,7 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
         )}
 
         {/* Línea de Ruta de Partida a Llegada */}
-        {destCoords && (
+        {destCoords && isValidCoord(destCoords.latitude, destCoords.longitude) && (
           <Polyline
             coordinates={[
               { latitude: originCoords.latitude, longitude: originCoords.longitude },
@@ -126,7 +148,7 @@ export const DriverTripMap: React.FC<DriverTripMapProps> = ({
         )}
       </MapView>
 
-      {!location && (
+      {!hasValidDriverLocation && (
         <View style={styles.locatingBanner}>
           <Text style={styles.locatingText}>
             Buscando señal GPS del camión...

@@ -10,7 +10,11 @@ import {
   enqueueOfflineDelivery,
   syncPendingDeliveries,
 } from "@/services/orderService";
-import { startOrCancelrip, updateTripStatus } from "@/services/tripsService";
+import {
+  getTripDetail,
+  startOrCancelrip,
+  updateTripStatus,
+} from "@/services/tripsService";
 import { stopBackgroundLocationUpdates } from "@/services/backgroundLocationTask";
 import { useDriverLocationTracking } from "./useDriverLocationTracking";
 import { updateDeliveryStatus } from "../utils/deliveryUtils";
@@ -42,6 +46,16 @@ const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?
 
   useMountEffect(async () => {
     syncPendingDeliveries();
+    if (trip?.id && (!trip.orders || trip.orders.length === 0)) {
+      try {
+        const response = await getTripDetail(trip.id);
+        if (response?.success && response?.trip) {
+          saveTrip(response.trip);
+        }
+      } catch (err) {
+        console.error("Error cargando detalle completo del viaje activo:", err);
+      }
+    }
   });
 
   const handleStartTrip = async () => {

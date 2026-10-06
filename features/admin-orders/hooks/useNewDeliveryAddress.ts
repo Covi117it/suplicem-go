@@ -5,33 +5,30 @@ import { isValidCedula, isValidPassport } from "@/utils/validationUtils";
 const generateTempPlaceId = () => `new-${Date.now()}`;
 
 export const useNewDeliveryAddress = (
-  onAddressCreated?: (address: any) => void
+  onAddressCreated?: (address: any) => void,
+  defaultClientData?: {
+    recipientName?: string;
+    recipientDocument?: string;
+    recipientDocumentType?: string;
+    userUid?: string;
+  }
 ) => {
   const { showAlert } = useAlert();
-
-  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
-  const [newAddressData, setNewAddressData] = useState({
+  const getInitialAddressData = () => ({
     placeId: "",
     description: "",
     latitude: 0,
     longitude: 0,
-    recipientName: "",
-    recipientDocument: "",
-    recipientDocumentType: "Cédula",
+    recipientName: defaultClientData?.recipientName || "",
+    recipientDocument: defaultClientData?.recipientDocument || "",
+    recipientDocumentType: defaultClientData?.recipientDocumentType || "Cédula",
+    userUid: defaultClientData?.userUid || "",
     additionalInfo: "",
   });
-
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  const [newAddressData, setNewAddressData] = useState(getInitialAddressData);
   const resetForm = () => {
-    setNewAddressData({
-      placeId: "",
-      description: "",
-      latitude: 0,
-      longitude: 0,
-      recipientName: "",
-      recipientDocument: "",
-      recipientDocumentType: "Cédula",
-      additionalInfo: "",
-    });
+    setNewAddressData(getInitialAddressData());
     setIsAddingNewAddress(false);
   };
 
@@ -40,6 +37,17 @@ export const useNewDeliveryAddress = (
       showAlert({
         message: "Por favor, selecciona una dirección.",
         type: "error",
+      });
+      return;
+    }
+
+    const lat = Number(newAddressData.latitude);
+    const lng = Number(newAddressData.longitude);
+    if (!lat || !lng || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+      showAlert({
+        message:
+          "La dirección no tiene coordenadas GPS válidas. Por favor, selecciona una sugerencia del buscador o marca el punto en el mapa.",
+        type: "warning",
       });
       return;
     }

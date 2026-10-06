@@ -245,6 +245,7 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
               recipientName: "",
               recipientDocument: "",
               recipientDocumentType: "Cédula",
+              userUid: "",
               additionalInfo: "",
             });
           }}

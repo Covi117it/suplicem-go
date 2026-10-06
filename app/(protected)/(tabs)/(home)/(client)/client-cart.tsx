@@ -198,6 +198,17 @@ const CartScreen: React.FC = () => {
         });
         return;
       }
+
+      const lat = Number(selectedAddress.latitude);
+      const lng = Number(selectedAddress.longitude);
+      if (!lat || !lng || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+        showAlert({
+          message:
+            "La dirección ingresada no tiene coordenadas GPS válidas. Por favor, selecciona una sugerencia de la lista o usa el mapa para fijar tu ubicación.",
+          type: "warning",
+        });
+        return;
+      }
     }
 
     show();

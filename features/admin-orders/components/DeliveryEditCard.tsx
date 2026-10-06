@@ -13,7 +13,7 @@ interface DeliveryEditCardProps {
   maxQuantity: number;
   onUserSelection: (userId: string, deliveryId: string) => void;
   onUpdateDelivery: (id: string, values: Partial<DeliveryDetail>) => void;
-  onRemoveDelivery: (id: string) => void;
+  onRemoveDelivery?: (id: string) => void;
   onValidateQuantity: (newQuantity: number) => boolean;
 }
 
@@ -83,32 +83,44 @@ export const DeliveryEditCard: React.FC<DeliveryEditCardProps> = ({
         options={[{ label: "Seleccionar", value: "" }, ...productOptions]}
       />
 
-      {/* Input de Cantidad */}
+      {/* Selector de Cantidad */}
       <Text style={styles.deliveryEditLabel}>
-        Cantidad ({delivery.unit || "uds."})
+        Cantidad ({delivery.unit || "fundas"})
       </Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        placeholder={`Cantidad (Máx disponible: ${maxQuantity})`}
-        placeholderTextColor="#999"
-        value={String(delivery.quantity ?? "")}
-        onChangeText={(text) => {
-          const num = Number(text) || 0;
+      <CustomPickerModal
+        label="Seleccionar cantidad"
+        selectedValue={String(delivery.quantity || 0)}
+        onValueChange={(val) => {
+          const num = Number(val) || 0;
           if (onValidateQuantity(num)) {
             onUpdateDelivery(delivery.id, { quantity: num });
           }
         }}
+        options={(() => {
+          const standardSteps = [100, 200, 300, 400, 500, 600, 1000];
+          // Opciones que no superen el máximo disponible
+          const validSteps = standardSteps.filter((q) => q <= maxQuantity);
+          
+          // Si el máximo no está en los pasos estándar (ej. 150), lo agregamos
+          if (maxQuantity > 0 && !validSteps.includes(maxQuantity)) {
+            validSteps.push(maxQuantity);
+            validSteps.sort((a, b) => a - b);
+          }
+          if (validSteps.length === 0) {
+            return [
+              { label: `Sin cantidad disponible (Máx: ${maxQuantity})`, value: "0" },
+            ];
+          }
+          return [
+            { label: "Seleccionar cantidad", value: "0" },
+            ...validSteps.map((q) => ({
+              label: `${q} ${delivery.unit || "fundas"}${q === maxQuantity ? " (Total disponible)" : ""}`,
+              value: String(q),
+            })),
+          ];
+        })()}
       />
 
-      {/* Botón de Eliminar Entrega */}
-      <TouchableOpacity
-        style={styles.removeDeliveryButton}
-        onPress={() => onRemoveDelivery(delivery.id)}
-      >
-        <Ionicons name="trash-outline" size={16} color="#fff" />
-        <Text style={styles.removeDeliveryText}>Eliminar esta Entrega</Text>
-      </TouchableOpacity>
     </View>
   );
 };

@@ -18,6 +18,7 @@ import { RegisterIdUploadCard } from "./components/RegisterIdUploadCard";
 import { RegisterPersonalFields } from "./components/RegisterPersonalFields";
 import { RegisterAddressSection } from "./components/RegisterAddressSection";
 import { RegisterDriverFields } from "./components/RegisterDriverFields";
+import { Ionicons } from "@expo/vector-icons";
 
 export const RegisterScreen: React.FC = () => {
   const router = useRouter();
@@ -34,6 +35,8 @@ export const RegisterScreen: React.FC = () => {
     addAddress,
     removeAddress,
     onSubmit,
+    acceptedTerms,
+    setAcceptedTerms,
   } = useRegister();
 
   return (
@@ -100,31 +103,37 @@ export const RegisterScreen: React.FC = () => {
         )}
 
         <TouchableOpacity
-          style={styles.button}
-          onPress={handleSubmit(onSubmit)}
-        >
-          <Text style={styles.buttonText}>Registrarse</Text>
-        </TouchableOpacity>
-
-        <View style={styles.termsContainer}>
-          <Text style={styles.termsText}>
-            Al registrarte aceptas nuestros{" "}
-            <Text
-              style={styles.linkInline}
-              onPress={() => router.push("/terms")}
-            >
-              Términos de Uso
-            </Text>{" "}
-            y{" "}
-            <Text
-              style={styles.linkInline}
-              onPress={() => router.push("/privacy")}
-            >
-              Política de Privacidad
-            </Text>
-            .
-          </Text>
+        style={styles.checkboxContainer}
+        activeOpacity={0.8}
+        onPress={() => setAcceptedTerms(!acceptedTerms)}
+      >
+        <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+          {acceptedTerms && <Ionicons name="checkmark" size={16} color="#ffffff" />}
         </View>
+        <Text style={styles.checkboxLabel}>
+          He leído y acepto los{" "}
+          <Text
+            style={styles.linkInline}
+            onPress={() => router.push("/terms")}
+          >
+            Términos de Uso
+          </Text>{" "}
+          y la{" "}
+          <Text
+            style={styles.linkInline}
+            onPress={() => router.push("/privacy")}
+          >
+            Política de Privacidad
+          </Text>
+          .
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleSubmit(onSubmit)}
+      >
+        <Text style={styles.buttonText}>Registrarse</Text>
+      </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -175,5 +184,34 @@ const styles = StyleSheet.create({
     color: "#0F294A",
     fontWeight: "bold",
     textDecorationLine: "underline",
+  },
+
+    checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#0F294A",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    backgroundColor: "#ffffff",
+  },
+  checkboxChecked: {
+    backgroundColor: "#0F294A",
+    borderColor: "#0F294A",
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: "#333",
+    lineHeight: 18,
   },
 });
