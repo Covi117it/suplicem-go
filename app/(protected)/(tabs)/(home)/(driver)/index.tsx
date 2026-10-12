@@ -51,7 +51,10 @@ const DriverHomeScreen = () => {
   const { trip: contextTrip, saveTrip, clearTrip } = useContext(AcceptedTripContext);
 
   const currentUserId = user?.uid;
-  const hasAcceptedTrip = Boolean(activeTrip || contextTrip);
+  const hasAcceptedTrip = Boolean(
+    (activeTrip && activeTrip.status !== "assigned") ||
+    (contextTrip && contextTrip.status !== "assigned")
+  );
 
   // Contadores dinámicos para los chips de filtro
   const tripCounts = useMemo(() => {
@@ -144,6 +147,7 @@ const DriverHomeScreen = () => {
           createdAt: trip.createdAt,
           assignedDriverId: trip.assignedDriverId,
           comments: trip.comments,
+          status: trip.status,
         }));
 
         setTrips(mappedTrips);
@@ -191,7 +195,7 @@ const DriverHomeScreen = () => {
         />
       </View>
 
-      {/* Banner de Viaje Activo / Aceptado */}
+      {/* Banner de Viaje Activo / Aceptado / Asignado */}
       {activeTrip && (
         <View style={styles.activeTripCard}>
           <View style={styles.activeTripHeaderRow}>
@@ -199,10 +203,17 @@ const DriverHomeScreen = () => {
               style={[
                 styles.activeTripIconCircle,
                 activeTrip.status === "accepted" && { backgroundColor: "#2563EB" },
+                activeTrip.status === "assigned" && { backgroundColor: "#D97706" },
               ]}
             >
               <Ionicons
-                name={activeTrip.status === "accepted" ? "checkmark-circle" : "navigate"}
+                name={
+                  activeTrip.status === "accepted"
+                    ? "checkmark-circle"
+                    : activeTrip.status === "assigned"
+                    ? "person-add"
+                    : "navigate"
+                }
                 size={20}
                 color="#fff"
               />
@@ -211,11 +222,15 @@ const DriverHomeScreen = () => {
               <Text style={styles.activeTripTitle}>
                 {activeTrip.status === "accepted"
                   ? `Viaje aceptado: #${activeTrip.tripNumber}`
+                  : activeTrip.status === "assigned"
+                  ? `Viaje asignado: #${activeTrip.tripNumber}`
                   : `Viaje en curso: #${activeTrip.tripNumber}`}
               </Text>
               <Text style={styles.activeTripSubtitle}>
                 {activeTrip.status === "accepted"
                   ? `Listo para iniciar ruta • ${activeTrip.totalTons} Toneladas`
+                  : activeTrip.status === "assigned"
+                  ? `Asignado por administración • ${activeTrip.totalTons} Toneladas`
                   : `Ruta en camino • ${activeTrip.totalTons} Toneladas`}
               </Text>
             </View>
@@ -223,37 +238,67 @@ const DriverHomeScreen = () => {
               style={[
                 styles.activeTripStatusBadge,
                 activeTrip.status === "accepted" && { backgroundColor: "#DBEAFE" },
+                activeTrip.status === "assigned" && { backgroundColor: "#FEF3C7" },
               ]}
             >
               <Text
                 style={[
                   styles.activeTripStatusText,
                   activeTrip.status === "accepted" && { color: "#1D4ED8" },
+                  activeTrip.status === "assigned" && { color: "#B45309" },
                 ]}
               >
-                {activeTrip.status === "accepted" ? "Aceptado" : "En curso"}
+                {activeTrip.status === "accepted"
+                  ? "Aceptado"
+                  : activeTrip.status === "assigned"
+                  ? "Asignado"
+                  : "En curso"}
               </Text>
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.continueTripButton,
-              activeTrip.status === "accepted" && { backgroundColor: "#2563EB" },
-            ]}
-            activeOpacity={0.85}
-            onPress={() => {
-              saveTrip(activeTrip);
-              router.push("/driver-order");
-            }}
-          >
-            <Text style={styles.continueTripButtonText}>
-              {activeTrip.status === "accepted"
-                ? "Ir al viaje para iniciar ruta"
-                : "Ver detalle del viaje en curso"}
-            </Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </TouchableOpacity>
+          {activeTrip.status === "assigned" ? (
+            <TouchableOpacity
+              style={[styles.continueTripButton, { backgroundColor: "#16A34A" }]}
+              activeOpacity={0.85}
+              onPress={async () => {
+                try {
+                  show();
+                  const res = await aceptedTrip(activeTrip.id);
+                  if (res?.success) {
+                    const fullTrip = { ...activeTrip, status: "accepted" };
+                    saveTrip(fullTrip);
+                    setActiveTrip(fullTrip);
+                    router.push("/driver-order");
+                  }
+                } finally {
+                  hide();
+                }
+              }}
+            >
+              <Text style={styles.continueTripButtonText}>Aceptar Viaje</Text>
+              <Ionicons name="checkmark-circle" size={18} color="#fff" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.continueTripButton,
+                activeTrip.status === "accepted" && { backgroundColor: "#2563EB" },
+              ]}
+              activeOpacity={0.85}
+              onPress={() => {
+                saveTrip(activeTrip);
+                router.push("/driver-order");
+              }}
+            >
+              <Text style={styles.continueTripButtonText}>
+                {activeTrip.status === "accepted"
+                  ? "Ir al viaje para iniciar ruta"
+                  : "Ver detalle del viaje en curso"}
+              </Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -278,7 +323,7 @@ const DriverHomeScreen = () => {
           <View key={trip.id} style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <Text style={styles.label}>Viaje: {trip.tripNumber}</Text>
-              {trip.assignedDriverId && (!currentUserId || trip.assignedDriverId === currentUserId) ? (
+              {trip.status === "assigned" || (trip.assignedDriverId && (!currentUserId || trip.assignedDriverId === currentUserId)) ? (
                 <View style={styles.assignedBadge}>
                   <Text style={styles.assignedBadgeText}>🎯 Asignado para ti</Text>
                 </View>

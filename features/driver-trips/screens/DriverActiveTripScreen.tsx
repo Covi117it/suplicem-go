@@ -8,6 +8,7 @@ import { TripActionButtons } from "@/components/driver/TripActionButtons";
 import { Palette } from "@/constants/theme";
 import { useActiveTripExecution } from "../hooks/useActiveTripExecution";
 import { TripExecutionModals } from "../components/TripExecutionModals";
+import { DeliveryPinModal } from "../components/DeliveryPinModal";
 
 export const DriverActiveTripScreen: React.FC = () => {
   const {
@@ -16,6 +17,9 @@ export const DriverActiveTripScreen: React.FC = () => {
     expandedOrderIndex,
     isCancelModalVisible,
     isDeliveryModalVisible,
+    isPinModalVisible,
+    setIsPinModalVisible,
+    confirmCompleteWithPin,
     navigateBack,
     handleStartTrip,
     handleOpenDeliveryModal,
@@ -94,6 +98,13 @@ export const DriverActiveTripScreen: React.FC = () => {
         onCloseCancel={() => setIsCancelModalVisible(false)}
         onConfirmDelivery={handleSendDelivery}
         onCloseDelivery={() => setIsDeliveryModalVisible(false)}
+      />
+
+      <DeliveryPinModal
+        visible={isPinModalVisible}
+        tripNumber={trip?.tripNumber}
+        onConfirm={confirmCompleteWithPin}
+        onClose={() => setIsPinModalVisible(false)}
       />
     </ScrollView>
   );

@@ -1,12 +1,16 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { EditDriverVehicleModal } from "./EditDriverVehicleModal";
 
 interface AdminUserRoleCardProps {
   user: any;
+  onRefresh?: () => void;
 }
 
-export const AdminUserRoleCard: React.FC<AdminUserRoleCardProps> = ({ user }) => {
+export const AdminUserRoleCard: React.FC<AdminUserRoleCardProps> = ({ user, onRefresh }) => {
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+
   if (user?.userType === "driver") {
     const driverCode =
       user?.driverCode || (user?.uid ? `COND-${user.uid.slice(0, 5).toUpperCase()}` : "COND-XXXX");
@@ -22,7 +26,15 @@ export const AdminUserRoleCard: React.FC<AdminUserRoleCardProps> = ({ user }) =>
           </View>
         </View>
 
-        <Text style={[styles.sectionSubtitle, { marginTop: 12 }]}>Vehículo Asignado</Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
+          <Text style={styles.sectionSubtitle}>Vehículo Asignado</Text>
+          <TouchableOpacity onPress={() => setShowVehicleModal(true)}>
+            <Text style={{ fontSize: 13, color: "#E31E24", fontWeight: "700" }}>
+              {v ? "Editar" : "+ Asignar"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {v ? (
           <View style={styles.vehicleBox}>
             <View style={styles.vehicleRow}>
@@ -45,6 +57,14 @@ export const AdminUserRoleCard: React.FC<AdminUserRoleCardProps> = ({ user }) =>
         ) : (
           <Text style={styles.emptyText}>Sin datos de vehículo registrados.</Text>
         )}
+
+        <EditDriverVehicleModal
+          visible={showVehicleModal}
+          onClose={() => setShowVehicleModal(false)}
+          userId={user.uid || user.id}
+          initialVehicle={v}
+          onSuccess={() => onRefresh && onRefresh()}
+        />
       </View>
     );
   }

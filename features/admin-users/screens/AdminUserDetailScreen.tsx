@@ -86,7 +86,7 @@ export const AdminUserDetailScreen: React.FC<AdminUserDetailScreenProps> = ({
       <AdminUserContactCard user={user} />
 
       {/* 5. Datos Específicos según Rol (Vehículo chofer / Direcciones cliente) */}
-      <AdminUserRoleCard user={user} />
+      <AdminUserRoleCard user={user} onRefresh={fetchUser} />
     </ScrollView>
   );
 };

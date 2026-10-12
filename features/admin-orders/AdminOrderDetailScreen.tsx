@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -18,6 +19,8 @@ import { OrderFinancialSummary } from "./components/OrderFinancialSummary";
 import { OrderDispatchCard } from "./components/OrderDispatchCard";
 import { DeliveriesSection } from "./components/DeliveriesSection";
 import { DriverAssignmentCard } from "./components/DriverAssignmentCard";
+import { OrderTripsProgressCard } from "./components/OrderTripsProgressCard";
+import { DispatchFractionalTripModal } from "./components/DispatchFractionalTripModal";
 import { RejectOrderModal } from "./components/RejectOrderModal";
 import { ReceiptViewerModal } from "./components/ReceiptViewerModal";
 import { AddDeliveryAddressModal } from "./components/AddDeliveryAddressModal";
@@ -34,6 +37,11 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     trip,
     users,
     drivers,
+    allTrips,
+    orderTrips,
+    availableToDispatch,
+    dispatchNextTrip,
+    isDispatching,
     selectedDriverId,
     setSelectedDriverId,
     rejectModalVisible,
@@ -44,9 +52,22 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     setDeclineReason,
     approveOrder,
     rejectOrder,
+    refreshAll,
     setFreshOrder,
     updateOrder,
   } = useAdminOrderDetail(orderId);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshAll();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const [fractionalModalVisible, setFractionalModalVisible] = useState(false);
 
   const {
     isEditing,
@@ -92,6 +113,9 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#166534"]} />
+        }
       >
         {/* 1. Cabecera y datos de contacto del cliente */}
         <AdminOrderHeader
@@ -184,14 +208,41 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
           </View>
         ) : null}
 
-        {/* 8. Asignación de Conductor Específico */}
+        {/* 8. Progreso de Viajes y Despachos Simultáneos */}
+        {!isEditing && isDelivery && (
+          <OrderTripsProgressCard
+            order={currentOrder}
+            orderTrips={orderTrips}
+            availableToDispatch={availableToDispatch}
+            onDispatchNextTrip={() => setFractionalModalVisible(true)}
+            isDispatching={isDispatching}
+          />
+        )}
+
+        {/* 9. Asignación de Conductor Específico para Aprobación Inicial */}
         {isPendingOrRequested && !isEditing && isDelivery && (
           <DriverAssignmentCard
+            order={currentOrder}
             drivers={drivers}
+            allTrips={allTrips}
             selectedDriverId={selectedDriverId}
             onSelectDriver={setSelectedDriverId}
           />
         )}
+
+        <DispatchFractionalTripModal
+          visible={fractionalModalVisible}
+          onClose={() => setFractionalModalVisible(false)}
+          order={currentOrder}
+          availableToDispatch={availableToDispatch}
+          drivers={drivers}
+          allTrips={allTrips}
+          onConfirm={(tons, drvId) => {
+            dispatchNextTrip(tons, drvId);
+            setFractionalModalVisible(false);
+          }}
+          isDispatching={isDispatching}
+        />
 
         {/* 9. Botones de Aprobación / Rechazo */}
         {!isEditing && isPendingOrRequested && (

@@ -30,6 +30,7 @@ const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?
   const [expandedOrderIndex, setExpandedOrderIndex] = useState<number | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
   const [isDeliveryModalVisible, setIsDeliveryModalVisible] = useState(false);
+  const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<{
     orderId: string;
@@ -161,23 +162,31 @@ const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?
       }
     }
 
+    // Abrir modal de seguridad para solicitar el código PIN al cliente
+    setIsPinModalVisible(true);
+  };
+
+  const confirmCompleteWithPin = async (enteredPin: string) => {
+    setIsPinModalVisible(false);
+    if (!trip?.id) return;
+
     try {
       setIsSubmitting(true);
       show();
-      const response = await updateTripStatus(trip.id, "completed");
+      const response = await updateTripStatus(trip.id, "completed", undefined, enteredPin);
       if (response.success) {
-       stopDriverLocationTracking();
+        stopDriverLocationTracking();
         await stopBackgroundLocationUpdates();
         clearTrip();
 
-        showAlert({ message: response.message || "Viaje completado. Gracias por tu trabajo.", type: "success" });
+        showAlert({ message: response.message || "Entrega confirmada. ¡Viaje completado exitosamente!", type: "success" });
         navigateBack();
       } else {
-        showAlert({ message: response.message || "Error: No se pudo completar el viaje.", type: "warning" });
+        showAlert({ message: response.message || "Código de entrega inválido.", type: "error" });
       }
     } catch (error: any) {
-      console.error("❌ Error al completar viaje:", error);
-      showAlert({ message: error.message || "Error: Ocurrió un error al completar el viaje.", type: "error" });
+      console.error("❌ Error al completar viaje con PIN:", error);
+      showAlert({ message: error.message || "Error al verificar código de entrega.", type: "error" });
     } finally {
       setIsSubmitting(false);
       hide();
@@ -203,6 +212,9 @@ const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?
     expandedOrderIndex,
     isCancelModalVisible,
     isDeliveryModalVisible,
+    isPinModalVisible,
+    setIsPinModalVisible,
+    confirmCompleteWithPin,
     navigateBack,
     handleStartTrip,
     handleOpenDeliveryModal,

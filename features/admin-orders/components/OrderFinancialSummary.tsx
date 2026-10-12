@@ -3,6 +3,7 @@ import { formatRD } from "@/utils/currencyUtils";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { formatProductQuantity } from "@/constants/cartConstants";
 
 interface OrderFinancialSummaryProps {
   items: OrderItem[];
@@ -54,7 +55,7 @@ export const OrderFinancialSummary: React.FC<OrderFinancialSummaryProps> = ({
           >
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productQuantity}>
-              Cantidad: {item.quantity} {item.unit}
+              Cantidad: {formatProductQuantity(item.quantity, item.unit, item.name)}
             </Text>
           </View>
         ))}

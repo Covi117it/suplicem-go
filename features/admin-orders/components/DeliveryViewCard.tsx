@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { DeliveryDetail, OrderItem } from "@/types/orders";
+import { formatProductQuantity } from "@/constants/cartConstants";
 
 interface DeliveryViewCardProps {
   delivery: DeliveryDetail;
@@ -31,7 +32,7 @@ export const DeliveryViewCard: React.FC<DeliveryViewCardProps> = ({
         </Text>
       )}
       <Text style={styles.productValue}>
-        🪣 {productName} - {delivery.quantity} {delivery.unit || "uds."}
+        🪣 {productName} - {formatProductQuantity(delivery.quantity, delivery.unit, productName)}
       </Text>
     </View>
   );

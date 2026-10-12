@@ -8,7 +8,7 @@ import {
   rejectedOrder as rejectOrderService,
   getOrderDetail,
 } from "@/services/orderService";
-import { getTripByOrderId } from "@/services/tripsService";
+import { getTripByOrderId, getAllTrips, createTrip } from "@/services/tripsService";
 import { getUsers } from "@/services/userService";
 import { User } from "@/types/users";
 import { Order } from "@/types/orders";
@@ -29,6 +29,7 @@ export const useAdminOrderDetail = (orderId?: string) => {
   // Estados de actores (usuarios y conductores)
   const [users, setUsers] = useState<User[]>([]);
   const [drivers, setDrivers] = useState<User[]>([]);
+  const [allTrips, setAllTrips] = useState<Trip[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
 
   // Modales de acción
@@ -62,14 +63,33 @@ export const useAdminOrderDetail = (orderId?: string) => {
     }
   }, [orderId]);
 
+  // 4. Cargar conductores disponibles y viajes activos
+  const fetchDriversAndTrips = useCallback(async () => {
+    try {
+      const [driversRes, tripsRes] = await Promise.all([
+        getUsers({ userType: "driver" }),
+        getAllTrips(),
+      ]);
+      if (driversRes.success && driversRes.users) {
+        setDrivers(driversRes.users);
+      }
+      if (tripsRes?.success && tripsRes?.trips) {
+        setAllTrips(tripsRes.trips);
+      }
+    } catch (error) {
+      console.error("Error al obtener conductores o viajes:", error);
+    }
+  }, []);
+
   // Refrescar automáticamente al enfocar la pantalla
   useFocusEffect(
     useCallback(() => {
       if (orderId) {
         fetchFreshOrder();
         fetchTripDetails();
+        fetchDriversAndTrips();
       }
-    }, [orderId, fetchFreshOrder, fetchTripDetails])
+    }, [orderId, fetchFreshOrder, fetchTripDetails, fetchDriversAndTrips])
   );
 
   // 3. Cargar clientes
@@ -96,20 +116,9 @@ export const useAdminOrderDetail = (orderId?: string) => {
     fetchUsers();
   }, [showAlert]);
 
-  // 4. Cargar conductores disponibles
   useEffect(() => {
-    const fetchDrivers = async () => {
-      try {
-        const response = await getUsers({ userType: "driver" });
-        if (response.success && response.users) {
-          setDrivers(response.users);
-        }
-      } catch (error) {
-        console.error("Error al obtener conductores:", error);
-      }
-    };
-    fetchDrivers();
-  }, []);
+    fetchDriversAndTrips();
+  }, [fetchDriversAndTrips]);
 
   // 5. Acción: Aprobar orden (con o sin conductor asignado)
   const approveOrder = async () => {
@@ -126,7 +135,7 @@ export const useAdminOrderDetail = (orderId?: string) => {
       if (response.success) {
         updateOrder(targetId, { status: "approved" });
         setFreshOrder((prev) => (prev ? { ...prev, status: "approved" } : null));
-        fetchTripDetails();
+        await Promise.all([fetchTripDetails(), fetchDriversAndTrips()]);
         showAlert({
           message: selectedDriverId
             ? "Orden aprobada y asignada al conductor correctamente."
@@ -193,11 +202,87 @@ export const useAdminOrderDetail = (orderId?: string) => {
     }
   };
 
+  // 7. Cálculos de viajes simultáneos y pendientes
+  const orderTrips = allTrips.filter(
+    (t) => t.orderIds?.includes(currentOrder?.id || "") && String(t.status || "").toLowerCase() !== "canceled"
+  );
+  const activeTrips = orderTrips.filter((t) =>
+    ["available", "assigned", "accepted", "started", "in_progress"].includes(String(t.status || "").toLowerCase())
+  );
+  const tonsInTransit = activeTrips.reduce((sum, t) => sum + (Number(t.totalTons) || 0), 0);
+  const alreadyDelivered = Number(currentOrder?.deliveredTons) || 0;
+  const orderTotalTons = Number(currentOrder?.totalTons || currentOrder?.pendingBalance) || 0;
+  const availableToDispatch = Math.max(0, orderTotalTons - alreadyDelivered - tonsInTransit);
+
+  const [isDispatching, setIsDispatching] = useState(false);
+
+  // 8. Acción: Programar viaje siguiente / simultáneo
+  const dispatchNextTrip = async (tonsToDispatch?: number, driverId?: string) => {
+    const finalTons = tonsToDispatch && tonsToDispatch > 0 ? tonsToDispatch : availableToDispatch;
+    if (!currentOrder?.id || finalTons <= 0) return;
+
+    try {
+      setIsDispatching(true);
+      show();
+      const nextTripNumber = `TRIP-${currentOrder.orderNumber || currentOrder.id.slice(0, 5).toUpperCase()}-${orderTrips.length + 1}`;
+      const chosenDriver =
+        driverId && driverId.trim() !== "" ? driverId.trim() : undefined;
+      const response = await createTrip(
+        nextTripNumber,
+        [currentOrder.id],
+        "Despacho programado por administración",
+        finalTons,
+        chosenDriver
+      );
+
+      if (response?.success) {
+        showAlert({
+          message: `Viaje ${nextTripNumber} creado exitosamente (${finalTons.toFixed(2)} t).`,
+          type: "success",
+        });
+        setSelectedDriverId("");
+        const tripsRes = await getAllTrips();
+        if (tripsRes?.success && tripsRes?.trips) {
+          setAllTrips(tripsRes.trips);
+        }
+        fetchTripDetails();
+        fetchFreshOrder();
+      } else {
+        showAlert({
+          message: response?.message || "No se pudo crear el viaje.",
+          type: "error",
+        });
+      }
+    } catch (err: any) {
+      console.error("Error al despachar siguiente viaje:", err);
+      showAlert({
+        message: err?.message || "Error al programar el viaje.",
+        type: "error",
+      });
+    } finally {
+      setIsDispatching(false);
+      hide();
+    }
+  };
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([
+      fetchFreshOrder(),
+      fetchTripDetails(),
+      fetchDriversAndTrips(),
+    ]);
+  }, [fetchFreshOrder, fetchTripDetails, fetchDriversAndTrips]);
+
   return {
     currentOrder,
     trip,
     users,
     drivers,
+    allTrips,
+    orderTrips,
+    availableToDispatch,
+    dispatchNextTrip,
+    isDispatching,
     selectedDriverId,
     setSelectedDriverId,
     rejectModalVisible,
@@ -210,6 +295,8 @@ export const useAdminOrderDetail = (orderId?: string) => {
     rejectOrder,
     fetchFreshOrder,
     fetchTripDetails,
+    fetchDriversAndTrips,
+    refreshAll,
     setFreshOrder,
     updateOrder: (updated: Partial<Order>) => {
       if (currentOrder?.id) {

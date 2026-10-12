@@ -84,8 +84,13 @@ export const DriverTripOrderCard: React.FC<DriverTripOrderCardProps> = ({
                   value={item.name}
                 />
                 <InfoRow
+                  icon="speedometer-outline"
+                  label="Carga en este viaje"
+                  value={order.tripTons ? `${order.tripTons} t` : `${item.quantity} ${item.unit}`}
+                />
+                <InfoRow
                   icon="cube-outline"
-                  label="Cantidad"
+                  label="Total de la orden"
                   value={`${item.quantity} ${item.unit}`}
                 />
                 <InfoRow

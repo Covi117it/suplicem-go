@@ -31,11 +31,17 @@ type StatusInfo = {
   color: string;
 };
 
+const isTripFractional = (tripNumber?: string): boolean => {
+  if (!tripNumber) return false;
+  return /-\d+$/.test(tripNumber.trim());
+};
+
 const TRIP_FILTER_OPTIONS: FilterOption<string>[] = [
   { id: "Todos", label: "Todos" },
   { id: "available", label: "Pendientes" },
   { id: "accepted", label: "Aceptados" },
   { id: "completed", label: "Finalizados" },
+  { id: "fractional", label: "🧩 Fraccionados" },
   { id: "canceled", label: "Cancelados" },
 ];
 
@@ -86,6 +92,7 @@ const TripsScreen: React.FC = () => {
       available: 0,
       accepted: 0,
       completed: 0,
+      fractional: 0,
       canceled: 0,
     };
     trips.forEach((t) => {
@@ -95,6 +102,9 @@ const TripsScreen: React.FC = () => {
       }
       if (counts[status] !== undefined) {
         counts[status] = (counts[status] || 0) + 1;
+      }
+      if (isTripFractional(t.tripNumber)) {
+        counts.fractional = (counts.fractional || 0) + 1;
       }
     });
     return counts;
@@ -110,6 +120,7 @@ const TripsScreen: React.FC = () => {
 
     const matchesStatus =
       statusFilter === "Todos" ||
+      (statusFilter === "fractional" && isTripFractional(trip.tripNumber)) ||
       trip.status === statusFilter ||
       (statusFilter === "accepted" &&
         (trip.status === "started" || trip.status === "in_progress"));
@@ -178,7 +189,14 @@ const TripsScreen: React.FC = () => {
             onPress={() => handleViewTrip(trip.id)}
           >
             <View style={styles.tripHeader}>
-              <Text style={styles.tripNumber}>{trip.tripNumber}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.tripNumber}>{trip.tripNumber}</Text>
+                {isTripFractional(trip.tripNumber) && (
+                  <View style={styles.fractionalTag}>
+                    <Text style={styles.fractionalTagText}>🧩 Despacho Fraccionado</Text>
+                  </View>
+                )}
+              </View>
               <View
                 style={[
                   styles.statusBadge,
@@ -275,5 +293,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: "#555",
     fontStyle: "italic",
+  },
+  fractionalTag: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  fractionalTagText: {
+    fontSize: 11,
+    color: "#1D4ED8",
+    fontWeight: "600",
   },
 });

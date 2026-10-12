@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { formatRD } from "@/utils/currencyUtils";
 import { OrderItem } from "@/types/orders";
+import { formatProductQuantity } from "@/constants/cartConstants";
 
 interface OrderProductsCardProps {
   items: OrderItem[];
@@ -18,8 +19,8 @@ export const OrderProductsCard: React.FC<OrderProductsCardProps> = ({ items }) =
             📄 <Text style={styles.bold}>Descripción:</Text> {item.name}
           </Text>
           <Text style={styles.productLine}>
-            📦 <Text style={styles.bold}>Cantidad:</Text> {item.quantity}{" "}
-            {item.unit}
+            📦 <Text style={styles.bold}>Cantidad:</Text>{" "}
+            {formatProductQuantity(item.quantity, item.unit, item.name)}
           </Text>
           <Text style={styles.productLine}>
             💰 <Text style={styles.bold}>Monto total:</Text>{" "}

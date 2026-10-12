@@ -12,6 +12,10 @@ import { ClientOrderSummaryCard } from "../components/ClientOrderSummaryCard";
 import { ClientOrderReorderBanner } from "../components/ClientOrderReorderBanner";
 import { ClientOrderTrackingSteps } from "../components/ClientOrderTrackingSteps";
 import { ClientOrderMap } from "../components/ClientOrderMap";
+import { ClientDeliveryPinCard } from "../components/ClientDeliveryPinCard";
+import { ClientDeliveryProgressBar } from "../components/ClientDeliveryProgressBar";
+import { ClientTripCard } from "../components/ClientTripCard";
+import { formatProductQuantity } from "@/constants/cartConstants";
 
 interface ClientOrderDetailScreenProps {
   orderId?: string;
@@ -25,8 +29,19 @@ export const ClientOrderDetailScreen: React.FC<
 
   const selectedOrder = orders.find((order) => order.id === orderId);
 
-  const { trip, driverLocation, handleCallDriver, handleWhatsapp } =
-    useClientOrderTracking(selectedOrder);
+  const {
+    trip,
+    trips,
+    tonsInfo,
+    driverLocation,
+    handleCallDriver,
+    handleWhatsapp,
+  } = useClientOrderTracking(selectedOrder);
+
+  const isMultiTrip = trips.length > 1;
+  const isCement = selectedOrder?.items?.some(
+    (i: any) => i.unit === "fundas" || i.name?.toLowerCase().includes("cemento")
+  );
 
   const { handleRepeatOrder } = useRepeatOrder(selectedOrder);
 
@@ -54,6 +69,40 @@ export const ClientOrderDetailScreen: React.FC<
         onWhatsappDriver={handleWhatsapp}
       />
 
+      {/* 1.1 Progreso General de Entrega (en órdenes fraccionadas o con avance) */}
+      {(isMultiTrip || (tonsInfo.deliveredTons > 0 && tonsInfo.totalTons > 0)) && (
+        <ClientDeliveryProgressBar
+          deliveredTons={tonsInfo.deliveredTons || selectedOrder.deliveredTons || 0}
+          totalTons={tonsInfo.totalTons || selectedOrder.totalTons || 0}
+          items={selectedOrder.items}
+        />
+      )}
+
+      {/* 1.2 Tarjetas de Camiones y Viajes Independientes (Multi-Viaje) o PIN único (Simple) */}
+      {isMultiTrip ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🚚 Camiones en Ruta ({trips.length})</Text>
+          {trips.map((t: any, idx: number) => (
+            <ClientTripCard
+              key={t.id || idx}
+              trip={t}
+              index={idx}
+              onCallDriver={handleCallDriver}
+              onWhatsappDriver={handleWhatsapp}
+              isCementOrder={isCement}
+              cementProductName={selectedOrder.items?.find((i: any) =>
+                i.unit === "fundas" || i.name?.toLowerCase().includes("cemento")
+              )?.name}
+            />
+          ))}
+        </View>
+      ) : (
+        <ClientDeliveryPinCard
+          pin={trip?.deliveryPin}
+          tripStatus={trip?.status}
+        />
+      )}
+
       {/* 2. Banner de Repetir Pedido */}
       <ClientOrderReorderBanner
         itemsCount={selectedOrder.items?.length || 0}
@@ -70,8 +119,8 @@ export const ClientOrderDetailScreen: React.FC<
               📄 <Text style={styles.bold}>Descripción:</Text> {item.name}
             </Text>
             <Text style={styles.productLine}>
-              📦 <Text style={styles.bold}>Cantidad:</Text> {item.quantity}{" "}
-              {item.unit}
+              📦 <Text style={styles.bold}>Cantidad:</Text>{" "}
+              {formatProductQuantity(item.quantity, item.unit, item.name)}
             </Text>
             <Text style={styles.productLine}>
               💰 <Text style={styles.bold}>Monto total:</Text>{" "}
@@ -100,7 +149,13 @@ export const ClientOrderDetailScreen: React.FC<
                     (o: any) => o.productId === delivery.productId
                   )?.name
                 }{" "}
-                - {delivery.quantity} {delivery.unit}
+                - {formatProductQuantity(
+                    delivery.quantity,
+                    delivery.unit,
+                    selectedOrder?.items?.find(
+                      (o: any) => o.productId === delivery.productId
+                    )?.name
+                  )}
               </Text>
 
               {delivery.address?.latitude && delivery.address?.longitude && (

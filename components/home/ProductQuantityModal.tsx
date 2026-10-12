@@ -12,15 +12,8 @@ import { Palette } from "@/constants/theme";
 import { formatRD } from "@/utils/currencyUtils";
 import { Product } from "./ProductCatalogCard";
 
-export const QUANTITY_OPTIONS = [
-  { fundas: 100, label: "4.25 t (100 fundas)" },
-  { fundas: 200, label: "8.5 t (200 fundas)" },
-  { fundas: 300, label: "12.75 t (300 fundas)" },
-  { fundas: 400, label: "17 t (400 fundas)" },
-  { fundas: 500, label: "20.25 t (500 fundas)" },
-  { fundas: 600, label: "25.5 t (600 fundas)" },
-  { fundas: 1000, label: "42.5 t (1000 fundas)" },
-];
+import { TON_OPTIONS as QUANTITY_OPTIONS, getTonOptions } from "@/constants/cartConstants";
+export { QUANTITY_OPTIONS };
 
 type ProductQuantityModalProps = {
   product: Product | null;
@@ -41,6 +34,7 @@ export const ProductQuantityModal: React.FC<ProductQuantityModalProps> = ({
 
   const currentQtyNum = parseInt(quantity, 10) || 100;
   const subtotal = product.price * currentQtyNum;
+  const productOptions = getTonOptions(product.name);
 
   return (
     <Modal
@@ -62,7 +56,7 @@ export const ProductQuantityModal: React.FC<ProductQuantityModalProps> = ({
           <Text style={styles.optionsSectionTitle}>Cantidad / Toneladas:</Text>
 
           <View style={styles.optionsGrid}>
-            {QUANTITY_OPTIONS.map((opt) => {
+            {productOptions.map((opt) => {
               const isSelected = parseInt(quantity, 10) === opt.fundas;
               return (
                 <TouchableOpacity

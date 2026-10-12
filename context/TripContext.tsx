@@ -59,6 +59,8 @@ export type AcceptedTrip = {
   userLastNames: string;
   userPhone: string;
   driver?: any;
+  cancellationReason?: string;
+  deliveryPin?: string;
 };
 
 // Estado del contexto

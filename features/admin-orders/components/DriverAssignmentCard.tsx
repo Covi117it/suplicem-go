@@ -1,20 +1,27 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import CustomPickerModal from "@/components/CustomPickerModal";
 import { User } from "@/types/users";
+import { Trip } from "@/types/trips";
+import { Order } from "@/types/orders";
+import { DriverSelectionModal } from "./DriverSelectionModal";
 
 interface DriverAssignmentCardProps {
+  order: Order;
   drivers: User[];
+  allTrips: Trip[];
   selectedDriverId: string;
   onSelectDriver: (driverId: string) => void;
 }
 
 export const DriverAssignmentCard: React.FC<DriverAssignmentCardProps> = ({
+  order,
   drivers,
+  allTrips,
   selectedDriverId,
   onSelectDriver,
 }) => {
+  const [modalVisible, setModalVisible] = useState(false);
   const selectedDriver = drivers.find((d) => d.uid === selectedDriverId);
 
   return (
@@ -24,40 +31,50 @@ export const DriverAssignmentCard: React.FC<DriverAssignmentCardProps> = ({
         <Text style={styles.title}>Asignar Conductor al Viaje</Text>
       </View>
       <Text style={styles.subtitle}>
-        Selecciona un conductor por su ID para asignarle la entrega exclusivamente, o déjalo en "Sin asignar" para que cualquier conductor disponible pueda tomarlo.
+        Verifica la capacidad del vehículo y el estado en ruta antes de asignar.
       </Text>
 
-      <CustomPickerModal
-        label="Seleccionar conductor..."
-        selectedValue={selectedDriverId}
-        onValueChange={(val) => onSelectDriver(val)}
-        options={[
-          { label: "🌐 Sin asignar (Disponible para todos)", value: "" },
-          ...drivers.map((drv) => ({
-            label: `[${drv.driverCode || ("COND-" + (drv.uid ? drv.uid.slice(0, 5).toUpperCase() : "XXXX"))}] ${drv.names} ${drv.lastNames}${drv.vehicle?.plateNumber ? ` (Placa: ${drv.vehicle.plateNumber})` : ""}`,
-            value: drv.uid || "",
-          })),
-        ]}
-      />
+      <TouchableOpacity
+        style={styles.selectButton}
+        onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
+        <Text style={styles.selectButtonText}>
+          {selectedDriverId ? "Cambiar Conductor" : "Seleccionar Conductor"}
+        </Text>
+      </TouchableOpacity>
 
-      {selectedDriverId ? (
+      {selectedDriverId && selectedDriver ? (
         <View style={styles.selectedDriverBadge}>
-          <Ionicons name="checkmark-circle" size={16} color="#2E7D32" />
-          <Text style={styles.selectedDriverBadgeText}>
-            Asignado a:{" "}
-            {selectedDriver
-              ? `[${selectedDriver.driverCode || ("COND-" + (selectedDriver.uid ? selectedDriver.uid.slice(0, 5).toUpperCase() : "XXXX"))}] ${selectedDriver.names} ${selectedDriver.lastNames}`
-              : selectedDriverId}
-          </Text>
+          <Ionicons name="checkmark-circle" size={18} color="#166534" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.selectedDriverBadgeText}>
+              [{selectedDriver.driverCode || "COND-" + (selectedDriver.uid?.slice(0, 5).toUpperCase() || "XXXX")}] {selectedDriver.names} {selectedDriver.lastNames}
+            </Text>
+            <Text style={styles.selectedDriverSubtext}>
+              Capacidad: {selectedDriver.vehicle?.tons ? `${Number(selectedDriver.vehicle.tons).toFixed(2)} t` : "No reg."} • Placa: {selectedDriver.vehicle?.plateNumber || "N/A"}
+            </Text>
+          </View>
         </View>
       ) : (
         <View style={styles.unassignedDriverBadge}>
-          <Ionicons name="information-circle-outline" size={16} color="#0F294A" />
+          <Ionicons name="globe-outline" size={18} color="#1E40AF" />
           <Text style={styles.unassignedDriverBadgeText}>
-            El viaje estará disponible para cualquier conductor activo en su pantalla principal.
+            Sin asignar: Disponible para todos los conductores activos con capacidad.
           </Text>
         </View>
       )}
+
+      <DriverSelectionModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        order={order}
+        drivers={drivers}
+        allTrips={allTrips}
+        selectedDriverId={selectedDriverId}
+        onSelectDriver={onSelectDriver}
+      />
     </View>
   );
 };
@@ -88,32 +105,52 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 18,
   },
+  selectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0F294A",
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 8,
+  },
+  selectButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   selectedDriverBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     backgroundColor: "#DCFCE7",
     borderColor: "#86EFAC",
     borderWidth: 1,
     borderRadius: 8,
     padding: 10,
-    marginTop: 10,
+    marginTop: 6,
   },
   selectedDriverBadgeText: {
     fontSize: 13,
     color: "#166534",
     fontWeight: "600",
   },
+  selectedDriverSubtext: {
+    fontSize: 12,
+    color: "#15803D",
+    marginTop: 2,
+  },
   unassignedDriverBadge: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 8,
     backgroundColor: "#EFF6FF",
     borderColor: "#BFDBFE",
     borderWidth: 1,
     borderRadius: 8,
     padding: 10,
-    marginTop: 10,
+    marginTop: 6,
   },
   unassignedDriverBadgeText: {
     flex: 1,

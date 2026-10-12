@@ -229,7 +229,7 @@ const DriverSettingsMainScreen: React.FC = () => {
       <CheckRender allowed={user?.userType === ROLE.DRIVER}>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>🚚 Vehículo Asignado</Text>
-          {user.vehicle ? (
+          {isEditing || user.vehicle ? (
             <>
               {/* Área destacada para el Número de Placa del Vehículo */}
               <View style={styles.plateCard}>
@@ -237,7 +237,7 @@ const DriverSettingsMainScreen: React.FC = () => {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.plateLabel}>NÚMERO DE PLACA VEHICULAR</Text>
                   <Text style={styles.plateValue}>
-                    {isEditing ? (vehiclePlateNumber || "No asignada") : (user.vehicle.plateNumber || "No registrada")}
+                    {isEditing ? (vehiclePlateNumber || "No asignada") : (user.vehicle?.plateNumber || "No registrada")}
                   </Text>
                 </View>
               </View>
@@ -273,7 +273,7 @@ const DriverSettingsMainScreen: React.FC = () => {
                     icon={<Feather name="calendar" size={22} color="#E31E24" />}
                   />
                   <InputRow
-                    label="Toneladas"
+                    label="Capacidad (Toneladas)"
                     value={vehicleTons}
                     onChange={setVehicleTons}
                     placeholder="Ej: 5"
@@ -284,22 +284,22 @@ const DriverSettingsMainScreen: React.FC = () => {
                 <>
                   <InfoRow
                     label="Marca"
-                    value={user.vehicle.brand}
+                    value={user.vehicle?.brand || "N/A"}
                     icon={<MaterialIcons name="directions-car" size={22} color="#E31E24" />}
                   />
                   <InfoRow
                     label="Modelo"
-                    value={user.vehicle.model}
+                    value={user.vehicle?.model || "N/A"}
                     icon={<Feather name="tag" size={22} color="#E31E24" />}
                   />
                   <InfoRow
                     label="Año"
-                    value={user.vehicle.year || "N/A"}
+                    value={user.vehicle?.year || "N/A"}
                     icon={<Feather name="calendar" size={22} color="#E31E24" />}
                   />
                   <InfoRow
                     label="Capacidad (Toneladas)"
-                    value={user.vehicle.tons ? `${user.vehicle.tons} Ton` : "N/A"}
+                    value={user.vehicle?.tons ? `${user.vehicle.tons} Ton` : "N/A"}
                     icon={<Feather name="truck" size={22} color="#E31E24" />}
                   />
                 </>

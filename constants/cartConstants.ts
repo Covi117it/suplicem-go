@@ -1,17 +1,65 @@
 export type TonOption = {
   fundas: number;
   toneladas: number;
+  label?: string;
 };
 
-export const TON_OPTIONS: TonOption[] = [
-  { fundas: 100, toneladas: 4.25 },
-  { fundas: 200, toneladas: 8.5 },
-  { fundas: 300, toneladas: 12.75 },
-  { fundas: 400, toneladas: 17 },
-  { fundas: 500, toneladas: 20.25 },
-  { fundas: 600, toneladas: 25.5 },
-  { fundas: 1000, toneladas: 42.5 },
-];
+// 1. Constantes físicas oficiales de Suplicem
+export const TONS_PER_BAG_STANDARD = 0.0425; // 42.5 kg - Cemento Normal (Gris / Uso General)
+export const TONS_PER_BAG_SPECIAL = 0.0400;   // 40.0 kg - Cemento Especial (Blanco / Estructural)
+export const TONS_PER_BAG = TONS_PER_BAG_STANDARD;
+
+export const isSpecialCement = (name?: string): boolean => {
+  const n = (name || "").toLowerCase();
+  return (
+    n.includes("blanco") ||
+    n.includes("especial") ||
+    n.includes("estructural") ||
+    n.includes("40kg") ||
+    n.includes("40 kg")
+  );
+};
+
+export const getTonsPerBag = (productName?: string): number => {
+  return isSpecialCement(productName) ? TONS_PER_BAG_SPECIAL : TONS_PER_BAG_STANDARD;
+};
+
+// 2. Funciones de conversión universales y puras
+export const bagsToTons = (bags: number, productName?: string): number => {
+  const factor = getTonsPerBag(productName);
+  return Number((bags * factor).toFixed(2));
+};
+
+export const tonsToBags = (tons: number, productName?: string): number => {
+  const factor = getTonsPerBag(productName);
+  return Math.round(tons / factor);
+};
+
+// 3. Cantidades estándar de fundas que ofrece la tienda
+export const STANDARD_BAG_QUANTITIES = [100, 200, 300, 400, 500, 600, 1000];
+
+// 4. Generación DINÁMICA de opciones según el tipo de cemento (42.5kg vs 40kg)
+export const getTonOptions = (productName?: string): TonOption[] =>
+  STANDARD_BAG_QUANTITIES.map((fundas) => {
+    const toneladas = bagsToTons(fundas, productName);
+    return {
+      fundas,
+      toneladas,
+      label: `${toneladas} t (${fundas} fundas)`,
+    };
+  });
+
+export const TON_OPTIONS: TonOption[] = getTonOptions();
+
+// 5. Helper universal para formatear cantidad de productos (ej. cemento en fundas y toneladas)
+export const formatProductQuantity = (quantity: number, unit?: string, name?: string): string => {
+  const isCement = unit === "fundas" || name?.toLowerCase().includes("cemento") || unit === "toneladas";
+  if (isCement) {
+    const tons = bagsToTons(quantity, name);
+    return `${quantity.toLocaleString()} fundas (${tons} t)`;
+  }
+  return `${quantity} ${unit || "uds."}`;
+};
 
 export const DELIVERY_OPTIONS = [
   { label: "Almacén", value: "almacen" },

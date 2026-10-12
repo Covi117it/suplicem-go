@@ -47,7 +47,8 @@ export const createTrip = async (
   tripNumber: string,
   orderIds: string[],
   comments: string,
-  totalTons?: number
+  totalTons?: number,
+  driverId?: string
 ) => {
   const payload: Record<string, any> = {
     tripNumber,
@@ -57,15 +58,27 @@ export const createTrip = async (
   if (totalTons !== undefined && totalTons > 0) {
     payload.totalTons = totalTons;
   }
+  if (driverId && driverId.trim() !== "") {
+    payload.driverId = driverId;
+  }
   const response = await protectedApi.post("/trips", payload);
   return response.data;
 };
 
-export const updateTripStatus = async (tripId: string, status: string) => {
+export const updateTripStatus = async (
+  tripId: string,
+  status: string,
+  reason?: string,
+  deliveryPin?: string
+) => {
   const result = await safeRequest(() =>
     protectedApi.patch(`/trips/${tripId}/status`, {
       tripId,
       status,
+      targetStatus: status,
+      reason,
+      cancellationReason: reason,
+      deliveryPin,
     })
   );
   if (result.success) {

@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { formatRD } from "@/utils/currencyUtils";
-import { TON_OPTIONS } from "@/constants/cartConstants";
+import { getTonOptions } from "@/constants/cartConstants";
 import { Palette } from "@/constants/theme";
 
 export type CartItemData = {
@@ -40,7 +40,7 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
 
       <Text style={styles.label}>Cantidad / Toneladas:</Text>
       <View style={styles.tonContainer}>
-        {TON_OPTIONS.map((option) => (
+        {getTonOptions(item.name).map((option) => (
           <TouchableOpacity
             key={option.fundas}
             onPress={() => onUpdateFundas(option.fundas)}

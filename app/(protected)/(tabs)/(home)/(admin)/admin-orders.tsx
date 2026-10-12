@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { FilterChips, FilterOption } from "@/components/FilterChips";
 import { Palette } from "@/constants/theme";
+import { formatProductQuantity } from "@/constants/cartConstants";
 
 const ORDER_FILTER_OPTIONS: FilterOption<string>[] = [
   { id: "Todos", label: "Todas" },
@@ -202,7 +203,7 @@ const AdminOrdersScreen = () => {
 
               {order.items.map((item: any, idx: number) => (
                 <Text key={idx} style={styles.item}>
-                  - {item.name} - {item.quantity} {item.unit}
+                  - {item.name} - {formatProductQuantity(item.quantity, item.unit, item.name)}
                 </Text>
               ))}
 

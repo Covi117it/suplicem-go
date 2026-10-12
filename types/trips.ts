@@ -2,6 +2,7 @@ import { Order } from "./orders";
 
 export type TripStatus =
   | "available"
+  | "assigned"
   | "accepted"
   | "started"
   | "in_progress"
@@ -21,4 +22,6 @@ export interface Trip {
   comments?: string;
   createdAt: string;
   acceptedAt?: string;
+  cancellationReason?: string;
+  deliveryPin?: string;
 }
