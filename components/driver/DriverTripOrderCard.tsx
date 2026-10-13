@@ -156,7 +156,7 @@ export const DriverTripOrderCard: React.FC<DriverTripOrderCardProps> = ({
                 >
                   <TouchableOpacity
                     style={styles.deliverButton}
-                    onPress={() => onOpenDeliveryModal(order?.id, index)}
+                    onPress={() => onOpenDeliveryModal(order?.id, delivery.originalIndex !== undefined ? delivery.originalIndex : index)}
                   >
                     <Text style={styles.deliverButtonText}>
                       Marcar como entregado

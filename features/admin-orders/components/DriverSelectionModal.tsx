@@ -10,6 +10,7 @@ interface DriverSelectionModalProps {
   visible: boolean;
   onClose: () => void;
   order: Order;
+  targetTons?: number;
   drivers: User[];
   allTrips: Trip[];
   selectedDriverId: string;
@@ -20,12 +21,15 @@ export const DriverSelectionModal: React.FC<DriverSelectionModalProps> = ({
   visible,
   onClose,
   order,
+  targetTons,
   drivers,
   allTrips,
   selectedDriverId,
   onSelectDriver,
 }) => {
-  const totalTons = Number(order.totalTons || order.pendingBalance) || 0;
+  const isFractional = typeof targetTons === "number";
+  const displayTons = isFractional ? targetTons : (Number(order.totalTons || order.pendingBalance) || 0);
+  const totalOrderTons = Number(order.totalTons || order.pendingBalance) || 0;
   const isSingleTrip = order.deliveryPreference === "single_trip";
 
   const getDriverActiveTrip = (driverUid?: string) => {
@@ -53,9 +57,17 @@ export const DriverSelectionModal: React.FC<DriverSelectionModalProps> = ({
 
           {/* Resumen Logístico de la Orden */}
           <View style={styles.orderSummaryCard}>
+            {isFractional && (
+              <View style={styles.subSummaryRow}>
+                <Text style={styles.subSummaryLabel}>Total de la orden:</Text>
+                <Text style={styles.subSummaryTons}>{totalOrderTons.toFixed(2)} t</Text>
+              </View>
+            )}
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Carga total de la orden:</Text>
-              <Text style={styles.summaryTons}>{totalTons.toFixed(2)} t</Text>
+              <Text style={styles.summaryLabel}>
+                {isFractional ? "Carga faltante por programar:" : "Carga total de la orden:"}
+              </Text>
+              <Text style={styles.summaryTons}>{displayTons.toFixed(2)} t</Text>
             </View>
             <View style={[styles.preferenceBadge, isSingleTrip ? styles.prefSingle : styles.prefPartial]}>
               <Ionicons
@@ -95,7 +107,8 @@ export const DriverSelectionModal: React.FC<DriverSelectionModalProps> = ({
               <DriverCardItem
                 key={drv.uid}
                 driver={drv}
-                orderTons={totalTons}
+                orderTons={displayTons}
+                isFractional={isFractional}
                 deliveryPreference={order.deliveryPreference}
                 isSelected={selectedDriverId === drv.uid}
                 activeTrip={getDriverActiveTrip(drv.uid)}
@@ -147,6 +160,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
     marginBottom: 12,
+  },
+  subSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  subSummaryLabel: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+  subSummaryTons: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
   },
   summaryRow: {
     flexDirection: "row",

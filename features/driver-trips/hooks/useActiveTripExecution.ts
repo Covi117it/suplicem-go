@@ -47,7 +47,7 @@ const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?
 
   useMountEffect(async () => {
     syncPendingDeliveries();
-    if (trip?.id && (!trip.orders || trip.orders.length === 0)) {
+    if (trip?.id) {
       try {
         const response = await getTripDetail(trip.id);
         if (response?.success && response?.trip) {

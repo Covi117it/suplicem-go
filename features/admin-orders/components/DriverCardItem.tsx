@@ -7,6 +7,7 @@ import { Trip } from "@/types/trips";
 interface DriverCardItemProps {
   driver: User;
   orderTons: number;
+  isFractional?: boolean;
   deliveryPreference?: "single_trip" | "partial";
   isSelected: boolean;
   activeTrip?: Trip;
@@ -16,6 +17,7 @@ interface DriverCardItemProps {
 export const DriverCardItem: React.FC<DriverCardItemProps> = ({
   driver,
   orderTons,
+  isFractional,
   deliveryPreference,
   isSelected,
   activeTrip,
@@ -82,8 +84,10 @@ export const DriverCardItem: React.FC<DriverCardItemProps> = ({
             {isSingleTripViolated
               ? `Requiere ${requiredTrips} viajes (Cliente solicitó entrega completa en 1 solo viaje)`
               : requiredTrips === 1
-              ? "Completa la orden en 1 solo viaje"
-              : `Completará la orden en ${requiredTrips} viajes de hasta ${capacity.toFixed(2)} t`}
+              ? (isFractional ? "Completa la carga restante en 1 solo viaje" : "Completa la orden en 1 solo viaje")
+              : (isFractional
+                  ? `Completará la carga restante en ${requiredTrips} viajes de hasta ${capacity.toFixed(2)} t`
+                  : `Completará la orden en ${requiredTrips} viajes de hasta ${capacity.toFixed(2)} t`)}
           </Text>
         </View>
       )}

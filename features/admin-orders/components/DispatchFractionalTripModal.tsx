@@ -196,6 +196,7 @@ export const DispatchFractionalTripModal: React.FC<DispatchFractionalTripModalPr
         visible={driverModalVisible}
         onClose={() => setDriverModalVisible(false)}
         order={order}
+        targetTons={availableToDispatch}
         drivers={drivers}
         allTrips={allTrips}
         selectedDriverId={selectedDriverId}
