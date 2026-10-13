@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
-const TRACKING_STEPS = ["Pendiente de iniciar", "En camino", "Completado"];
+const TRACKING_STEPS = ["Iniciado", "En camino", "Completado"];
 
 interface ClientOrderTrackingStepsProps {
   tripStatus?: string;
@@ -14,7 +14,7 @@ export const ClientOrderTrackingSteps: React.FC<
     const stepIndex = TRACKING_STEPS.indexOf(step);
     const currentIndex = TRACKING_STEPS.indexOf(
       tripStatus === "accepted"
-        ? "Pendiente de iniciar"
+        ? "Iniciado"
         : tripStatus === "started" || tripStatus === "in_progress"
         ? "En camino"
         : tripStatus === "completed"

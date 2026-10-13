@@ -5,14 +5,14 @@ interface AdminTripTrackingStepsProps {
   status?: string | null;
 }
 
-const TRACKING_STEPS = ["Pendiente de iniciar", "En camino", "Completado"];
+const TRACKING_STEPS = ["Iniciado", "En camino", "Completado"];
 
 export const AdminTripTrackingSteps: React.FC<AdminTripTrackingStepsProps> = ({ status }) => {
   const isStepCompleted = (step: string): boolean => {
     const stepIndex = TRACKING_STEPS.indexOf(step);
     const currentIndex = TRACKING_STEPS.indexOf(
       status === "accepted"
-        ? "Pendiente de iniciar"
+        ? "Iniciado"
         : status === "started" || status === "in_progress"
         ? "En camino"
         : status === "completed"

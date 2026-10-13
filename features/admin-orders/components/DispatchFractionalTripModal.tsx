@@ -5,7 +5,6 @@ import { User } from "@/types/users";
 import { Trip } from "@/types/trips";
 import { Order } from "@/types/orders";
 import { DriverSelectionModal } from "./DriverSelectionModal";
-import { bagsToTons, tonsToBags } from "@/constants/cartConstants";
 
 interface DispatchFractionalTripModalProps {
   visible: boolean;
@@ -36,41 +35,18 @@ export const DispatchFractionalTripModal: React.FC<DispatchFractionalTripModalPr
   const totalOrderTons = Number(order.totalTons || order.pendingBalance) || 0;
   const avgFactor = totalBagsInOrder > 0 && totalOrderTons > 0 ? totalOrderTons / totalBagsInOrder : 0.0425;
 
-  const orderBagsToTons = (b: number) => Number((b * avgFactor).toFixed(2));
   const orderTonsToBags = (t: number) => Math.round(t / avgFactor);
 
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
   const [driverModalVisible, setDriverModalVisible] = useState(false);
   const [tonsInput, setTonsInput] = useState<string>(availableToDispatch.toString());
-  const [bagsInput, setBagsInput] = useState<string>(orderTonsToBags(availableToDispatch).toString());
 
   useEffect(() => {
     if (visible) {
       setTonsInput(availableToDispatch.toString());
-      setBagsInput(orderTonsToBags(availableToDispatch).toString());
       setSelectedDriverId("");
     }
-  }, [visible, availableToDispatch, avgFactor]);
-
-  const handleTonsChange = (val: string) => {
-    setTonsInput(val);
-    const parsed = parseFloat(val);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setBagsInput(orderTonsToBags(parsed).toString());
-    } else {
-      setBagsInput("");
-    }
-  };
-
-  const handleBagsChange = (val: string) => {
-    setBagsInput(val);
-    const parsed = parseInt(val, 10);
-    if (!isNaN(parsed) && parsed >= 0) {
-      setTonsInput(orderBagsToTons(parsed).toString());
-    } else {
-      setTonsInput("");
-    }
-  };
+  }, [visible, availableToDispatch]);
 
   const selectedDriver = drivers.find((d) => d.uid === selectedDriverId);
   const driverCapacity = Number(selectedDriver?.vehicle?.tons) || 0;
@@ -117,39 +93,24 @@ export const DispatchFractionalTripModal: React.FC<DispatchFractionalTripModalPr
             </View>
           </View>
 
-          {/* Selector de cantidad dual: Toneladas y Fundas */}
-          <Text style={styles.inputLabel}>Carga para este camión:</Text>
-          <View style={styles.inputRow}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.fieldSubLabel}>Toneladas (t):</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={tonsInput}
-                onChangeText={handleTonsChange}
-                placeholder="0.00"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.fieldSubLabel}>Fundas:</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={bagsInput}
-                onChangeText={handleBagsChange}
-                placeholder="0"
-              />
-            </View>
+          {/* Selector de cantidad: Solo Toneladas */}
+          <Text style={styles.inputLabel}>Carga para este camión (Toneladas):</Text>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.singleInput}
+              keyboardType="numeric"
+              value={tonsInput}
+              onChangeText={setTonsInput}
+              placeholder="0.00"
+            />
+            <Text style={styles.unitSuffix}>t</Text>
           </View>
           <TouchableOpacity
             style={styles.maxButtonFull}
-            onPress={() => {
-              setTonsInput(availableToDispatch.toString());
-              setBagsInput(orderTonsToBags(availableToDispatch).toString());
-            }}
+            onPress={() => setTonsInput(availableToDispatch.toString())}
           >
             <Text style={styles.maxButtonText}>
-              Cargar Todo el Remanente ({availableToDispatch.toFixed(2)} t • {orderTonsToBags(availableToDispatch).toLocaleString()} fundas)
+              Cargar Todo el Remanente ({availableToDispatch.toFixed(2)} t)
             </Text>
           </TouchableOpacity>
 
@@ -186,7 +147,7 @@ export const DispatchFractionalTripModal: React.FC<DispatchFractionalTripModalPr
           >
             <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" />
             <Text style={styles.submitButtonText}>
-              {isDispatching ? "Creando viaje..." : `Despachar Viaje (${enteredTons.toFixed(2)} t • ${orderTonsToBags(enteredTons).toLocaleString()} fundas)`}
+              {isDispatching ? "Creando viaje..." : `Despachar Viaje (${enteredTons.toFixed(2)} t)`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -268,27 +229,28 @@ const styles = StyleSheet.create({
     color: "#334155",
     marginBottom: 6,
   },
-  inputRow: {
+  inputContainer: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
-  },
-  input: {
-    flex: 1,
+    alignItems: "center",
     borderWidth: 1.5,
     borderColor: "#CBD5E1",
     borderRadius: 8,
     paddingHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  singleInput: {
+    flex: 1,
     paddingVertical: 10,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#0F294A",
   },
-  fieldSubLabel: {
-    fontSize: 11,
+  unitSuffix: {
+    fontSize: 16,
+    fontWeight: "bold",
     color: "#64748B",
-    marginBottom: 4,
-    fontWeight: "500",
+    marginLeft: 6,
   },
   maxButtonFull: {
     backgroundColor: "#F1F5F9",
