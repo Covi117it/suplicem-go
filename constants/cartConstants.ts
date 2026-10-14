@@ -51,6 +51,19 @@ export const getTonOptions = (productName?: string): TonOption[] =>
 
 export const TON_OPTIONS: TonOption[] = getTonOptions();
 
+// Opciones de capacidad de carga para vehículos de choferes acordes a las órdenes de la app
+export const DRIVER_VEHICLE_TON_OPTIONS = [
+  { label: "4.25 t (100 fundas - Camión Ligero)", value: "4.25" },
+  { label: "8.50 t (200 fundas - Camión Mediano)", value: "8.50" },
+  { label: "12.75 t (300 fundas - Camión Mediano)", value: "12.75" },
+  { label: "17.00 t (400 fundas - Doble Eje)", value: "17.00" },
+  { label: "21.25 t (500 fundas - Volteo Pesado)", value: "21.25" },
+  { label: "25.50 t (600 fundas - Cabezal / Rígido)", value: "25.50" },
+  { label: "30.00 t (Patana estándar)", value: "30.00" },
+  { label: "35.00 t (Patana pesada)", value: "35.00" },
+  { label: "42.50 t (1,000 fundas - Patana completa)", value: "42.50" },
+];
+
 // 5. Helper universal para formatear cantidad de productos (ej. cemento en fundas y toneladas)
 export const formatProductQuantity = (quantity: number, unit?: string, name?: string): string => {
   const isCement = unit === "fundas" || name?.toLowerCase().includes("cemento") || unit === "toneladas";

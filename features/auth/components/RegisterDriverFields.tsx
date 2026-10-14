@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput, View } from "react-native";
 import { Control, Controller, FieldErrors, UseFormSetValue, UseFormWatch } from "react-hook-form";
 import CustomPickerModal from "@/components/CustomPickerModal";
 import { RegisterFormData } from "@/types/users";
+import { DRIVER_VEHICLE_TON_OPTIONS } from "@/constants/cartConstants";
 
 interface RegisterDriverFieldsProps {
   control: Control<RegisterFormData>;
@@ -111,14 +112,7 @@ export const RegisterDriverFields: React.FC<RegisterDriverFieldsProps> = ({
             label="Toneladas"
             selectedValue={value || ""}
             onValueChange={onChange}
-            options={[
-              { label: "1", value: "1" },
-              { label: "2", value: "2" },
-              { label: "3", value: "3" },
-              { label: "5", value: "5" },
-              { label: "10", value: "10" },
-              { label: "20", value: "20" },
-            ]}
+            options={DRIVER_VEHICLE_TON_OPTIONS}
           />
         )}
       />
