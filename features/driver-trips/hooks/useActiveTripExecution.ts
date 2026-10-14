@@ -25,11 +25,7 @@ export const useActiveTripExecution = () => {
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
 
-<<<<<<< Updated upstream
 const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?.status);
-=======
-  const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?.status);
->>>>>>> Stashed changes
 
   const [expandedOrderIndex, setExpandedOrderIndex] = useState<number | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);

@@ -4,15 +4,7 @@ import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
 import { useAlert } from "@/context/alertContext";
 import { getCurrentUser, login, recoverPassword, resendVerificationEmail } from "@/services/authService";
-<<<<<<< Updated upstream
 import { saveAuthSession } from "@/utils/authStorage";
-=======
-import {
-  saveAuthSession,
-  saveAcceptedTerms,
-  checkAcceptedTerms,
-} from "@/utils/authStorage";
->>>>>>> Stashed changes
 
 export const useLogin = () => {
   const authContext = useContext(AuthContext);
@@ -30,20 +22,7 @@ export const useLogin = () => {
 
   // Modal de reenvío de verificación
   const [resendModalVisible, setResendModalVisible] = useState(false);
-<<<<<<< Updated upstream
   const [resendEmail, setResendEmail] = useState("");
-=======
-  const [verificationEmail, setVerificationEmail] = useState("");
-
-  // Modal de Términos y Condiciones
-  const [termsDisclaimerVisible, setTermsDisclaimerVisible] = useState(false);
-  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
-  const [isCheckedAccepted, setIsCheckedAccepted] = useState(false);
-  const [pendingSessionData, setPendingSessionData] = useState<{
-    session: any;
-    user: any;
-  } | null>(null);
->>>>>>> Stashed changes
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -157,23 +136,15 @@ export const useLogin = () => {
   };
 
   const handleResendVerification = async () => {
-<<<<<<< Updated upstream
     const targetEmail = resendEmail.trim();
     if (!targetEmail) {
       showAlert({
         message: "Por favor, ingrese su correo electrónico",
-=======
-    const targetEmail = verificationEmail || email;
-    if (!targetEmail) {
-      showAlert({
-        message: "Ingrese su correo electrónico",
->>>>>>> Stashed changes
         type: "error",
       });
       return;
     }
 
-<<<<<<< Updated upstream
     show();
     const response = await resendVerificationEmail(targetEmail);
     hide();
@@ -192,35 +163,6 @@ export const useLogin = () => {
         type: "error",
       });
     }
-=======
-    setResendModalVisible(false);
-    show();
-
-    const responseResend = await resendVerificationEmail(targetEmail);
-
-    if (responseResend?.data?.success) {
-      showAlert({
-        message: `Se ha reenviado un correo de verificación a ${targetEmail}.`,
-        type: "info",
-      });
-      setVerificationEmail("");
-    } else {
-      showAlert({
-        message:
-          responseResend?.message ||
-          responseResend?.data?.message ||
-          "No se pudo enviar el correo de verificación",
-        type: "error",
-      });
-    }
-
-    hide();
-  };
-
-  const openResendVerificationModal = () => {
-    setVerificationEmail(email);
-    setResendModalVisible(true);
->>>>>>> Stashed changes
   };
 
   return {
@@ -236,23 +178,10 @@ export const useLogin = () => {
     setRecoveryEmail,
     resendModalVisible,
     setResendModalVisible,
-<<<<<<< Updated upstream
     resendEmail,
     setResendEmail,
-=======
-    verificationEmail,
-    setVerificationEmail,
-    termsDisclaimerVisible,
-    hasScrolledToBottom,
-    isCheckedAccepted,
-    setIsCheckedAccepted,
->>>>>>> Stashed changes
     handleLogin,
     handlePasswordReset,
     handleResendVerification,
-<<<<<<< Updated upstream
-=======
-    openResendVerificationModal,
->>>>>>> Stashed changes
   };
 };

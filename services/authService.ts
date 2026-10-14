@@ -21,14 +21,8 @@ export const getCurrentUser = async (token: string) => {
   );
 };
 
-<<<<<<< Updated upstream
 export const resendVerificationEmail = async (email: string, idToken?: string) => {
   return await safeRequest(() =>
     api.post("/auth/resend-verification", { email, idToken })
-=======
-export const resendVerificationEmail = async (email: string) => {
-  return await safeRequest(() =>
-    api.post("/auth/resend-verification", { email })
->>>>>>> Stashed changes
   );
 };

@@ -121,7 +121,7 @@ export const ClientOrderDetailScreen: React.FC<
           </Text>
         </View>
       )}
-=======
+
       {/* 1.5. Comprobante de Pago (Adjuntar/Cambiar) */}
       <ClientOrderReceiptCard
         order={selectedOrder}
@@ -131,7 +131,6 @@ export const ClientOrderDetailScreen: React.FC<
           }
         }}
       />
->>>>>>> Stashed changes
 
       {/* 2. Banner de Repetir Pedido */}
       <ClientOrderReorderBanner

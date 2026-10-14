@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
 import { useState, useContext, useRef, useEffect, useCallback } from "react";
-=======
-import { useState, useContext, useEffect, useRef } from "react";
->>>>>>> Stashed changes
 import * as Location from "expo-location";
 import { ROLE } from "@/constants/UserConstants";
 import { AuthContext } from "@/context/authContext";
@@ -17,7 +13,6 @@ export const useDriverLocationTracking = (tripStatus?: string) => {
 
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
-<<<<<<< Updated upstream
   const stopDriverLocationTracking = useCallback(() => {
     if (subscriptionRef.current) {
       subscriptionRef.current.remove();
@@ -30,20 +25,7 @@ export const useDriverLocationTracking = (tripStatus?: string) => {
     // Si ya existe una suscripción activa, evitamos duplicar escuchadores
     if (subscriptionRef.current) return;
 
-=======
-  const stopDriverLocationTracking = () => {
-    if (subscriptionRef.current) {
-      subscriptionRef.current.remove();
-      subscriptionRef.current = null;
-      console.log("🛑 Rastreo GPS (watchPositionAsync) detenido correctamente para ahorrar batería.");
-    }
-  };
-
-  const startDriverLocationTracking = async () => {
->>>>>>> Stashed changes
     try {
-      stopDriverLocationTracking();
-
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         console.warn("Permiso de ubicación no concedido para el conductor");
@@ -62,11 +44,7 @@ export const useDriverLocationTracking = (tripStatus?: string) => {
         console.warn("No se pudo obtener posición inicial inmediata:", locErr);
       }
 
-<<<<<<< Updated upstream
       const subscription = await Location.watchPositionAsync(
-=======
-      const sub = await Location.watchPositionAsync(
->>>>>>> Stashed changes
         {
           accuracy: Location.Accuracy.Balanced,
           timeInterval: 5000,
@@ -81,22 +59,14 @@ export const useDriverLocationTracking = (tripStatus?: string) => {
         }
       );
 
-<<<<<<< Updated upstream
       subscriptionRef.current = subscription;
-=======
-      subscriptionRef.current = sub;
->>>>>>> Stashed changes
     } catch (error: any) {
       console.warn("Aviso al rastrear ubicación del conductor:", error?.message || error);
     }
   }, [authContext?.user?.userType]);
 
   useEffect(() => {
-<<<<<<< Updated upstream
-    if (tripStatus === "accepted" || tripStatus === "started") {
-=======
     if (tripStatus === "accepted" || tripStatus === "started" || tripStatus === "in_progress") {
->>>>>>> Stashed changes
       startDriverLocationTracking();
     } else {
       stopDriverLocationTracking();
@@ -105,14 +75,7 @@ export const useDriverLocationTracking = (tripStatus?: string) => {
     return () => {
       stopDriverLocationTracking();
     };
-<<<<<<< Updated upstream
   }, [tripStatus, startDriverLocationTracking, stopDriverLocationTracking]);
 
   return { location, stopDriverLocationTracking };
 };
-=======
-  }, [tripStatus]);
-
-  return { location, stopDriverLocationTracking };
-};
->>>>>>> Stashed changes

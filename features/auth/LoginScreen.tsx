@@ -10,10 +10,6 @@ import { LoginHeader } from "./components/LoginHeader";
 import { LoginForm } from "./components/LoginForm";
 import { ForgotPasswordModal } from "./components/ForgotPasswordModal";
 import { ResendVerificationModal } from "./components/ResendVerificationModal";
-<<<<<<< Updated upstream
-=======
-import { TermsDisclaimerModal } from "./components/TermsDisclaimerModal";
->>>>>>> Stashed changes
 
 export const LoginScreen: React.FC = () => {
   const {
@@ -29,24 +25,11 @@ export const LoginScreen: React.FC = () => {
     setRecoveryEmail,
     resendModalVisible,
     setResendModalVisible,
-<<<<<<< Updated upstream
     resendEmail,
     setResendEmail,
-=======
-    verificationEmail,
-    setVerificationEmail,
-    termsDisclaimerVisible,
-    hasScrolledToBottom,
-    isCheckedAccepted,
-    setIsCheckedAccepted,
->>>>>>> Stashed changes
     handleLogin,
     handlePasswordReset,
     handleResendVerification,
-<<<<<<< Updated upstream
-=======
-    openResendVerificationModal,
->>>>>>> Stashed changes
   } = useLogin();
 
   return (
@@ -71,14 +54,10 @@ export const LoginScreen: React.FC = () => {
           onToggleShowPassword={() => setShowPassword(!showPassword)}
           onLogin={handleLogin}
           onOpenForgotPassword={() => setModalVisible(true)}
-<<<<<<< Updated upstream
           onOpenResendVerification={() => {
             setResendEmail(email || "");
             setResendModalVisible(true);
           }}
-=======
-          onOpenResendVerification={openResendVerificationModal}
->>>>>>> Stashed changes
         />
 
         <ForgotPasswordModal
@@ -91,27 +70,10 @@ export const LoginScreen: React.FC = () => {
 
         <ResendVerificationModal
           visible={resendModalVisible}
-<<<<<<< Updated upstream
           email={resendEmail}
           onChangeEmail={setResendEmail}
           onSubmit={handleResendVerification}
           onClose={() => setResendModalVisible(false)}
-=======
-          email={verificationEmail}
-          onChangeEmail={setVerificationEmail}
-          onSubmit={handleResendVerification}
-          onClose={() => setResendModalVisible(false)}
-        />
-
-        <TermsDisclaimerModal
-          visible={termsDisclaimerVisible}
-          hasScrolledToBottom={hasScrolledToBottom}
-          isCheckedAccepted={isCheckedAccepted}
-          onScrollTerms={handleScrollTerms}
-          onToggleCheckbox={() => setIsCheckedAccepted(!isCheckedAccepted)}
-          onAccept={handleAcceptTerms}
-          onDecline={handleDeclineTerms}
->>>>>>> Stashed changes
         />
       </ScrollView>
     </KeyboardAvoidingView>
