@@ -17,6 +17,14 @@
         "EXPO_PUBLIC_API_URL": "http://54.211.170.107/api"
       }
     },
-    "production": {}
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK": "1",
+        "EXPO_PUBLIC_API_URL": "http://54.211.170.107/api"
+      }
+    }
   }
 }
