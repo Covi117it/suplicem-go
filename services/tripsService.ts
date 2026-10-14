@@ -102,3 +102,33 @@ export const getDriverLocation = async (driverId: string) => {
   const response = await safeRequest(() => protectedApi.get(`/location/${driverId}`));
   return response.data;
 };
+
+export const assignTripDriver = async (tripId: string, driverId: string) => {
+  const result = await safeRequest(() =>
+    protectedApi.patch(`/trips/${tripId}/assign`, { driverId })
+  );
+  if (result.success) {
+    return result.data;
+  }
+  return {
+    success: false,
+    message: result.message || "Error al asignar conductor al viaje",
+  };
+};
+
+export const splitOrderTrips = async (
+  orderId: string,
+  trips: Array<{ totalTons: number; driverId?: string; comments?: string }>
+) => {
+  const result = await safeRequest(() =>
+    protectedApi.post(`/trips/order/${orderId}/split-plan`, { trips })
+  );
+  if (result.success) {
+    return result.data;
+  }
+  return {
+    success: false,
+    message: result.message || "Error al planificar los viajes de la orden",
+  };
+};
+

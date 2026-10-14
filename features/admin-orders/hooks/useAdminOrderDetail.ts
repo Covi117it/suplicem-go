@@ -8,7 +8,15 @@ import {
   rejectedOrder as rejectOrderService,
   getOrderDetail,
 } from "@/services/orderService";
-import { getTripByOrderId, getAllTrips, createTrip } from "@/services/tripsService";
+import {
+  getTripByOrderId,
+  getAllTrips,
+  createTrip,
+  assignTripDriver,
+  updateTripStatus,
+  splitOrderTrips,
+} from "@/services/tripsService";
+
 import { getUsers } from "@/services/userService";
 import { User } from "@/types/users";
 import { Order } from "@/types/orders";
@@ -120,8 +128,10 @@ export const useAdminOrderDetail = (orderId?: string) => {
     fetchDriversAndTrips();
   }, [fetchDriversAndTrips]);
 
-  // 5. Acción: Aprobar orden (con o sin conductor asignado)
-  const approveOrder = async () => {
+  // 5. Acción: Aprobar orden (con o sin conductor asignado, o con viajes planificados)
+  const approveOrder = async (
+    tripsPlan?: Array<{ totalTons: number; driverId?: string; comments?: string }>
+  ) => {
     const targetId = currentOrder?.id;
     if (!targetId) return;
 
@@ -129,7 +139,8 @@ export const useAdminOrderDetail = (orderId?: string) => {
       show();
       const response = await approveOrderService(
         targetId,
-        selectedDriverId || undefined
+        selectedDriverId || undefined,
+        tripsPlan
       );
 
       if (response.success) {
@@ -137,7 +148,9 @@ export const useAdminOrderDetail = (orderId?: string) => {
         setFreshOrder((prev) => (prev ? { ...prev, status: "approved" } : null));
         await Promise.all([fetchTripDetails(), fetchDriversAndTrips()]);
         showAlert({
-          message: selectedDriverId
+          message: tripsPlan && tripsPlan.length > 1
+            ? `Orden aprobada y dividida en ${tripsPlan.length} viajes exitosamente.`
+            : selectedDriverId
             ? "Orden aprobada y asignada al conductor correctamente."
             : "Orden aprobada correctamente.",
           type: "success",
@@ -155,6 +168,42 @@ export const useAdminOrderDetail = (orderId?: string) => {
       hide();
     }
   };
+
+  const planAndSplitTrips = async (
+    tripsPlan: Array<{ totalTons: number; driverId?: string; comments?: string }>
+  ): Promise<boolean> => {
+    const targetId = currentOrder?.id;
+    if (!targetId || !tripsPlan?.length) return false;
+
+    try {
+      show();
+      const response = await splitOrderTrips(targetId, tripsPlan);
+      if (response?.success) {
+        showAlert({
+          message: `Viajes actualizados y fraccionados en ${tripsPlan.length} despachos.`,
+          type: "success",
+        });
+        await refreshAll();
+        return true;
+      } else {
+        showAlert({
+          message: response?.message || "No se pudo actualizar la planificación de viajes.",
+          type: "error",
+        });
+        return false;
+      }
+    } catch (error: any) {
+      console.error(error);
+      showAlert({
+        message: error?.message || "Error al planificar los viajes de la orden.",
+        type: "error",
+      });
+      return false;
+    } finally {
+      hide();
+    }
+  };
+
 
   // 6. Acción: Rechazar orden con motivo
   const rejectOrder = async () => {
@@ -265,6 +314,69 @@ export const useAdminOrderDetail = (orderId?: string) => {
     }
   };
 
+  const assignDriverToTrip = async (tripId: string, driverId: string) => {
+    if (!tripId || !driverId) return;
+    try {
+      show();
+      const response = await assignTripDriver(tripId, driverId);
+      if (response?.success) {
+        showAlert({
+          message: "Conductor asignado al viaje correctamente.",
+          type: "success",
+        });
+        await refreshAll();
+      } else {
+        showAlert({
+          message: response?.message || "No se pudo asignar el conductor.",
+          type: "error",
+        });
+      }
+    } catch (error: any) {
+      console.error(error);
+      showAlert({
+        message: error?.message || "Error al asignar conductor al viaje.",
+        type: "error",
+      });
+    } finally {
+      hide();
+    }
+  };
+
+  const cancelAndResplitTrip = async (tripId: string): Promise<boolean> => {
+    if (!tripId) return false;
+    try {
+      show();
+      const response = await updateTripStatus(
+        tripId,
+        "canceled",
+        "Cancelado por administración para fraccionar el viaje"
+      );
+      if (response?.success) {
+        showAlert({
+          message: "Viaje cancelado. El tonelaje ha sido liberado para reprogramarlo.",
+          type: "success",
+        });
+        await refreshAll();
+        return true;
+      } else {
+        showAlert({
+          message: response?.message || "No se pudo cancelar el viaje.",
+          type: "error",
+        });
+        return false;
+      }
+    } catch (error: any) {
+      console.error(error);
+      showAlert({
+        message: error?.message || "Error al cancelar el viaje.",
+        type: "error",
+      });
+      return false;
+    } finally {
+      hide();
+    }
+  };
+
   const refreshAll = useCallback(async () => {
     await Promise.all([
       fetchFreshOrder(),
@@ -282,6 +394,9 @@ export const useAdminOrderDetail = (orderId?: string) => {
     orderTrips,
     availableToDispatch,
     dispatchNextTrip,
+    assignDriverToTrip,
+    cancelAndResplitTrip,
+    planAndSplitTrips,
     isDispatching,
     selectedDriverId,
     setSelectedDriverId,

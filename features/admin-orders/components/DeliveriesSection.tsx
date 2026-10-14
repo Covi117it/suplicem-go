@@ -118,12 +118,14 @@ export const DeliveriesSection: React.FC<DeliveriesSectionProps> = ({
             <TouchableOpacity
               style={[styles.newAddressButton, { flex: 1 }]}
               onPress={onOpenNewAddressModal}
+              activeOpacity={0.8}
             >
               <Ionicons name="location-outline" size={20} color="#fff" />
               <Text style={styles.addDeliveryButtonText}>Nueva Dirección</Text>
             </TouchableOpacity>
           </View>
         )}
+
       </View>
     </View>
   );
@@ -147,16 +149,6 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
-  addDeliveryButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#2563EB",
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
   newAddressButton: {
     flex: 1,
     flexDirection: "row",
@@ -173,3 +165,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+

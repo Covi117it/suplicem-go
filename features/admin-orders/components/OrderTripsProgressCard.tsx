@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Order } from "@/types/orders";
 import { Trip } from "@/types/trips";
+import { User } from "@/types/users";
 import { tonsToBags } from "@/constants/cartConstants";
 
 interface OrderTripsProgressCardProps {
@@ -11,6 +12,10 @@ interface OrderTripsProgressCardProps {
   availableToDispatch: number;
   onDispatchNextTrip: () => void;
   isDispatching?: boolean;
+  drivers?: User[];
+  onAssignDriverToTrip?: (trip: Trip) => void;
+  onCancelAndResplitTrip?: (trip: Trip) => void;
+  onOpenPlanner?: () => void;
 }
 
 export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
@@ -19,7 +24,12 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
   availableToDispatch,
   onDispatchNextTrip,
   isDispatching,
+  drivers = [],
+  onAssignDriverToTrip,
+  onCancelAndResplitTrip,
+  onOpenPlanner,
 }) => {
+
   const totalTons = Number(order.totalTons || order.pendingBalance) || 0;
   const deliveredTons = Number(order.deliveredTons) || 0;
 
@@ -61,22 +71,76 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
         </View>
       </View>
 
+      {/* Botón de Replanificación / Fraccionar Viajes */}
+      {order.status === "approved" && onOpenPlanner && (
+        <TouchableOpacity
+          style={styles.planButton}
+          onPress={onOpenPlanner}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="git-branch-outline" size={16} color="#0F294A" />
+          <Text style={styles.planButtonText}>
+            {orderTrips.length > 0
+              ? "Replanificar / Dividir en varios viajes"
+              : "Fraccionar y Asignar Viajes"}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Lista de Viajes Existentes */}
+
       {orderTrips.length > 0 && (
         <View style={styles.tripsList}>
           <Text style={styles.subTitle}>Viajes generados ({orderTrips.length}):</Text>
-          {orderTrips.map((t, idx) => (
-            <View key={t.id || idx} style={styles.tripItem}>
-              <View style={styles.tripItemHeader}>
-                <Text style={styles.tripNumber}>🚚 {t.tripNumber}</Text>
-                <Text style={styles.tripStatus}>{t.status || "available"}</Text>
+          {orderTrips.map((t, idx) => {
+            const assignedDriver = (drivers || []).find((d) => d.uid === t.assignedDriverId);
+            const isPendingTrip = t.status === "available" || t.status === "assigned";
+            return (
+              <View key={t.id || idx} style={styles.tripItem}>
+                <View style={styles.tripItemHeader}>
+                  <Text style={styles.tripNumber}>🚚 {t.tripNumber}</Text>
+                  <Text style={styles.tripStatus}>{t.status || "available"}</Text>
+                </View>
+                <Text style={styles.tripDetails}>
+                  Carga: <Text style={styles.bold}>{t.totalTons} t</Text>
+                  {assignedDriver
+                    ? ` • [${assignedDriver.driverCode || "COND"}] ${assignedDriver.names} ${assignedDriver.lastNames}`
+                    : t.assignedDriverId
+                    ? " • Conductor asignado"
+                    : " • Bolsa general"}
+                </Text>
+
+                {isPendingTrip && (
+                  <View style={styles.tripActionsRow}>
+                    {onAssignDriverToTrip && (
+                      <TouchableOpacity
+                        style={styles.actionBtnSmall}
+                        onPress={() => onAssignDriverToTrip(t)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="person-outline" size={13} color="#0F294A" />
+                        <Text style={styles.actionBtnText}>
+                          {t.assignedDriverId ? "Cambiar Conductor" : "Asignar Conductor"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {onCancelAndResplitTrip && (
+                      <TouchableOpacity
+                        style={[styles.actionBtnSmall, styles.actionBtnDanger]}
+                        onPress={() => onCancelAndResplitTrip(t)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="cut-outline" size={13} color="#DC2626" />
+                        <Text style={[styles.actionBtnText, { color: "#DC2626" }]}>
+                          Dividir / Fraccionar
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
-              <Text style={styles.tripDetails}>
-                Carga: <Text style={styles.bold}>{t.totalTons} t</Text>
-                {t.assignedDriverId ? ` • Conductor asignado` : " • Bolsa general"}
-              </Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
@@ -229,4 +293,52 @@ const styles = StyleSheet.create({
     color: "#15803D",
     fontWeight: "600",
   },
+  tripActionsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+  actionBtnSmall: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  actionBtnDanger: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+  },
+  actionBtnText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#0F294A",
+  },
+  planButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1.5,
+    borderColor: "#BFDBFE",
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  planButtonText: {
+    color: "#1D4ED8",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
 });
+

@@ -9,8 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Trip } from "@/types/trips";
+import { DriverSelectionModal } from "./components/DriverSelectionModal";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAdminOrderDetail } from "./hooks/useAdminOrderDetail";
 import { useDeliveryEditor } from "./hooks/useDeliveryEditor";
@@ -24,6 +27,11 @@ import { DispatchFractionalTripModal } from "./components/DispatchFractionalTrip
 import { RejectOrderModal } from "./components/RejectOrderModal";
 import { ReceiptViewerModal } from "./components/ReceiptViewerModal";
 import { AddDeliveryAddressModal } from "./components/AddDeliveryAddressModal";
+import {
+  OrderTripPlannerModal,
+  PlannedTripItem,
+} from "./components/OrderTripPlannerModal";
+
 
 export interface AdminOrderDetailScreenProps {
   orderId?: string;
@@ -41,6 +49,9 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     orderTrips,
     availableToDispatch,
     dispatchNextTrip,
+    assignDriverToTrip,
+    cancelAndResplitTrip,
+    planAndSplitTrips,
     isDispatching,
     selectedDriverId,
     setSelectedDriverId,
@@ -68,6 +79,65 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
   };
 
   const [fractionalModalVisible, setFractionalModalVisible] = useState(false);
+  const [plannerModalVisible, setPlannerModalVisible] = useState(false);
+  const [isApprovalPlanning, setIsApprovalPlanning] = useState(false);
+  const [targetTripForDriver, setTargetTripForDriver] = useState<Trip | null>(null);
+  const [tripDriverModalVisible, setTripDriverModalVisible] = useState(false);
+
+  const handleAssignDriverToTrip = (tripToAssign: Trip) => {
+    setTargetTripForDriver(tripToAssign);
+    setTripDriverModalVisible(true);
+  };
+
+  const handleOpenPlanner = () => {
+    setIsApprovalPlanning(false);
+    setPlannerModalVisible(true);
+  };
+
+  const handleApprovePress = () => {
+    const totalTons = Number(currentOrder?.totalTons || currentOrder?.pendingBalance) || 0;
+    if (totalTons > 25 && isDelivery) {
+      setIsApprovalPlanning(true);
+      setPlannerModalVisible(true);
+    } else {
+      approveOrder();
+    }
+  };
+
+  const handleConfirmPlan = async (plannedTrips: PlannedTripItem[]) => {
+    if (isApprovalPlanning) {
+      await approveOrder(plannedTrips);
+      setPlannerModalVisible(false);
+    } else {
+      const ok = await planAndSplitTrips(plannedTrips);
+      if (ok) {
+        setPlannerModalVisible(false);
+      }
+    }
+  };
+
+  const handleCancelAndResplitTrip = (tripToSplit: Trip) => {
+    Alert.alert(
+      "Dividir / Fraccionar Viaje",
+      `¿Deseas cancelar el viaje ${tripToSplit.tripNumber} (${tripToSplit.totalTons} t) para liberar el tonelaje y fraccionarlo en despachos más pequeños?`,
+      [
+        { text: "No, Volver", style: "cancel" },
+        {
+          text: "Sí, Fraccionar",
+          style: "destructive",
+          onPress: async () => {
+            if (tripToSplit.id) {
+              const success = await cancelAndResplitTrip(tripToSplit.id);
+              if (success) {
+                setPlannerModalVisible(true);
+              }
+            }
+          },
+        },
+      ]
+    );
+  };
+
 
   const {
     isEditing,
@@ -209,13 +279,17 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
         ) : null}
 
         {/* 8. Progreso de Viajes y Despachos Simultáneos */}
-        {!isEditing && isDelivery && (
+        {isDelivery && (currentOrder.status === "approved" || !isEditing) && (
           <OrderTripsProgressCard
             order={currentOrder}
             orderTrips={orderTrips}
             availableToDispatch={availableToDispatch}
             onDispatchNextTrip={() => setFractionalModalVisible(true)}
             isDispatching={isDispatching}
+            drivers={drivers}
+            onAssignDriverToTrip={handleAssignDriverToTrip}
+            onCancelAndResplitTrip={handleCancelAndResplitTrip}
+            onOpenPlanner={handleOpenPlanner}
           />
         )}
 
@@ -244,12 +318,23 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
           isDispatching={isDispatching}
         />
 
+        <OrderTripPlannerModal
+          visible={plannerModalVisible}
+          onClose={() => setPlannerModalVisible(false)}
+          order={currentOrder}
+          totalAvailableTons={Number(currentOrder.totalTons || currentOrder.pendingBalance) || 0}
+          drivers={drivers}
+          allTrips={allTrips}
+          onConfirmPlan={handleConfirmPlan}
+          isSaving={isDispatching}
+        />
+
         {/* 9. Botones de Aprobación / Rechazo */}
         {!isEditing && isPendingOrRequested && (
           <View style={styles.buttonsContainer}>
             <TouchableOpacity
               style={styles.approveButton}
-              onPress={approveOrder}
+              onPress={handleApprovePress}
             >
               <Text style={styles.buttonText}>Aprobar</Text>
             </TouchableOpacity>
@@ -261,6 +346,7 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
             </TouchableOpacity>
           </View>
         )}
+
 
         {/* Modales desacoplados */}
         <RejectOrderModal
@@ -299,6 +385,27 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
               userUid: "",
               additionalInfo: "",
             });
+          }}
+        />
+
+        {/* Modal para asignar conductor a un viaje existente */}
+        <DriverSelectionModal
+          visible={tripDriverModalVisible}
+          onClose={() => {
+            setTripDriverModalVisible(false);
+            setTargetTripForDriver(null);
+          }}
+          order={currentOrder}
+          targetTons={Number(targetTripForDriver?.totalTons) || availableToDispatch}
+          drivers={drivers}
+          allTrips={allTrips}
+          selectedDriverId={targetTripForDriver?.assignedDriverId || ""}
+          onSelectDriver={(drvId) => {
+            if (targetTripForDriver?.id && drvId) {
+              assignDriverToTrip(targetTripForDriver.id, drvId);
+            }
+            setTripDriverModalVisible(false);
+            setTargetTripForDriver(null);
           }}
         />
       </ScrollView>

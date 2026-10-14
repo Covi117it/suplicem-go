@@ -142,13 +142,18 @@ export const getOrdersWithStatus = async (
   return { success: false, orders: [], message: result.message };
 };
 
-export const approveOrder = async (id: string, driverId?: string) => {
-  const response = await protectedApi.patch(`/orders/${id}/status`, {
-    status: "approved",
-    driverId,
-  });
+export const approveOrder = async (
+  id: string,
+  driverId?: string,
+  tripsPlan?: Array<{ totalTons: number; driverId?: string; comments?: string }>
+) => {
+  const payload: any = { status: "approved" };
+  if (driverId) payload.driverId = driverId;
+  if (tripsPlan && tripsPlan.length > 0) payload.tripsPlan = tripsPlan;
+  const response = await protectedApi.patch(`/orders/${id}/status`, payload);
   return response.data;
 };
+
 
 export const rejectedOrder = async (id: string, reason: string) => {
   const response = await protectedApi.patch(`/orders/${id}/status`, {
