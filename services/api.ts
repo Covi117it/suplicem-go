@@ -1,16 +1,10 @@
-import Constants from "expo-constants";
 import axios from "axios";
 
+// Backend de producción en AWS (fallback si no hay variable de entorno)
+const PRODUCTION_API_URL = "http://54.211.170.107/api";
+
 export const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-  const hostUri = Constants.expoConfig?.hostUri || Constants.experienceUrl || "";
-  const host = hostUri.split(":")[0];
-  if (host && !host.includes("ngrok") && !host.includes("exp.direct")) {
-    return `http://${host}:3000/api`;
-  }
-  return "http://10.0.0.10:3000/api";
+  return process.env.EXPO_PUBLIC_API_URL || PRODUCTION_API_URL;
 };
 
 const api = axios.create({

@@ -103,6 +103,32 @@ export const createOrder = async (
   return result.success ? result.data : { success: false, message: result.message };
 };
 
+export const updateOrderReceipt = async (id: string, receiptImageUri: string) => {
+  if (receiptImageUri.startsWith("http")) {
+    const result = await safeRequest(() =>
+      protectedApi.patch(`/orders/${id}/receipt`, { receiptImage: receiptImageUri })
+    );
+    return result.success ? result.data : { success: false, message: result.message };
+  } else {
+    const formData = new FormData();
+    const file: any = {
+      uri: receiptImageUri,
+      name: "comprobante.jpg",
+      type: "image/jpeg",
+    };
+    formData.append("receiptImage", file);
+
+    const result = await safeRequest(() =>
+      protectedApi.patch(`/orders/${id}/receipt`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
+    );
+    return result.success ? result.data : { success: false, message: result.message };
+  }
+};
+
 export const orderDelivered = async (id: string, index: number) => {
   const result = await safeRequest(() => protectedApi.patch(`/orders/${id}/deliveries/${index}`, {}));
   return result.success ? result.data : { success: false, message: result.message };

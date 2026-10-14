@@ -101,7 +101,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         style={styles.linkButton}
         onPress={onOpenResendVerification}
       >
+<<<<<<< Updated upstream
         <Text style={styles.linkText}>¿No recibiste el correo de verificación? Reenviar</Text>
+=======
+        <Text style={styles.linkText}>Reenviar correo de verificación</Text>
+>>>>>>> Stashed changes
       </TouchableOpacity>
 
       <View style={styles.termsContainer}>

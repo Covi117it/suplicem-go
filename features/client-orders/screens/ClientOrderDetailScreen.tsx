@@ -9,6 +9,7 @@ import { openExternalNavigation } from "@/utils/navigationUtils";
 import { useClientOrderTracking } from "../hooks/useClientOrderTracking";
 import { useRepeatOrder } from "../hooks/useRepeatOrder";
 import { ClientOrderSummaryCard } from "../components/ClientOrderSummaryCard";
+import { ClientOrderReceiptCard } from "../components/ClientOrderReceiptCard";
 import { ClientOrderReorderBanner } from "../components/ClientOrderReorderBanner";
 import { ClientOrderTrackingSteps } from "../components/ClientOrderTrackingSteps";
 import { ClientOrderMap } from "../components/ClientOrderMap";
@@ -25,7 +26,7 @@ export const ClientOrderDetailScreen: React.FC<
   ClientOrderDetailScreenProps
 > = ({ orderId }) => {
   const { user } = useContext(AuthContext);
-  const { orders } = useOrders();
+  const { orders, updateOrder } = useOrders();
 
   const selectedOrder = orders.find((order) => order.id === orderId);
 
@@ -69,16 +70,14 @@ export const ClientOrderDetailScreen: React.FC<
         onWhatsappDriver={handleWhatsapp}
       />
 
-      {/* 1.1 Sección según Tipo de Entrega: Domicilio vs Retiro en Almacén */}
-      {selectedOrder.deliveryType === "domicilio" ? (
-        <>
-          {(isMultiTrip || (tonsInfo.deliveredTons > 0 && tonsInfo.totalTons > 0)) && (
-            <ClientDeliveryProgressBar
-              deliveredTons={tonsInfo.deliveredTons || selectedOrder.deliveredTons || 0}
-              totalTons={tonsInfo.totalTons || selectedOrder.totalTons || 0}
-              items={selectedOrder.items}
-            />
-          )}
+      {/* 1.1 Progreso General de Entrega (en órdenes fraccionadas o con avance) */}
+      {(isMultiTrip || (tonsInfo.deliveredTons > 0 && tonsInfo.totalTons > 0)) && (
+        <ClientDeliveryProgressBar
+          deliveredTons={tonsInfo.deliveredTons || selectedOrder.deliveredTons || 0}
+          totalTons={tonsInfo.totalTons || selectedOrder.totalTons || 0}
+          items={selectedOrder.items}
+        />
+      )}
 
           {isMultiTrip ? (
             <View style={styles.section}>
@@ -122,6 +121,17 @@ export const ClientOrderDetailScreen: React.FC<
           </Text>
         </View>
       )}
+=======
+      {/* 1.5. Comprobante de Pago (Adjuntar/Cambiar) */}
+      <ClientOrderReceiptCard
+        order={selectedOrder}
+        onReceiptUpdated={(newReceiptUrl) => {
+          if (selectedOrder.id) {
+            updateOrder(selectedOrder.id, { receiptImage: newReceiptUrl });
+          }
+        }}
+      />
+>>>>>>> Stashed changes
 
       {/* 2. Banner de Repetir Pedido */}
       <ClientOrderReorderBanner
