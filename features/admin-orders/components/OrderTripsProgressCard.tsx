@@ -31,7 +31,7 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
 
   const progressRatio = totalTons > 0 ? Math.min(1, Math.max(0, deliveredTons / totalTons)) : 0;
   const deliveredBags = Math.round(totalBagsInOrder * progressRatio);
-  const pendingBags = Math.max(0, totalBagsInOrder - deliveredBags);
+  const bagsToDispatch = totalTons > 0 ? Math.max(0, Math.round(totalBagsInOrder * (availableToDispatch / totalTons))) : 0;
 
   return (
     <View style={styles.container}>
@@ -57,7 +57,7 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
           <Text style={[styles.statValue, { color: availableToDispatch > 0 ? "#C2410C" : "#64748B" }]}>
             {availableToDispatch.toFixed(2)} t
           </Text>
-          <Text style={styles.statSubValue}>({pendingBags.toLocaleString()} fundas)</Text>
+          <Text style={styles.statSubValue}>({bagsToDispatch.toLocaleString()} fundas)</Text>
         </View>
       </View>
 
