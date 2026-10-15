@@ -6,6 +6,7 @@ import { useAlert } from "@/context/alertContext";
 import {
   approveOrder as approveOrderService,
   rejectedOrder as rejectOrderService,
+  completePickupOrder as completePickupOrderService,
   getOrderDetail,
 } from "@/services/orderService";
 import {
@@ -293,6 +294,35 @@ export const useAdminOrderDetail = (orderId?: string) => {
     }
   };
 
+  const completePickup = async () => {
+    const targetId = currentOrder?.id;
+    if (!targetId) return;
+
+    try {
+      show();
+      const response = await completePickupOrderService(targetId);
+      if (response && response.success !== false) {
+        updateOrder(targetId, { status: "completed" });
+        setFreshOrder((prev) => (prev ? { ...prev, status: "completed" } : null));
+        await refreshAll();
+        showAlert({
+          message: "Retiro en almacén confirmado exitosamente. El pedido ha sido completado.",
+          type: "success",
+        });
+      } else {
+        showAlert({ message: response?.message || "No se pudo completar el retiro.", type: "error" });
+      }
+    } catch (error) {
+      console.error(error);
+      showAlert({
+        message: "Ocurrió un error al confirmar el retiro en almacén.",
+        type: "error",
+      });
+    } finally {
+      hide();
+    }
+  };
+
   // 7. Cálculos de viajes simultáneos y pendientes
   const orderTrips = useMemo(
     () =>
@@ -466,6 +496,7 @@ export const useAdminOrderDetail = (orderId?: string) => {
     setDeclineReason,
     approveOrder,
     rejectOrder,
+    completePickup,
     fetchFreshOrder,
     fetchTripDetails,
     fetchDriversAndTrips,

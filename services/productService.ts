@@ -7,6 +7,7 @@ export const createProduct = async (product: {
   unit: string;
   imageUrl?: string;
   imageUri?: string;
+  weightKg?: number;
 }) => {
   if (product.imageUri) {
     const formData = new FormData();
@@ -19,6 +20,9 @@ export const createProduct = async (product: {
     formData.append("name", product.name);
     formData.append("price", product.price.toString());
     formData.append("unit", product.unit);
+    if (product.weightKg !== undefined && product.weightKg !== null) {
+      formData.append("weightKg", product.weightKg.toString());
+    }
 
     const result = await safeRequest(() =>
       protectedApi.post("/products", formData, {
@@ -56,6 +60,7 @@ export const updateProduct = async (
     price: number;
     unit: string;
     imageUrl?: string;
+    weightKg?: number;
   }>
 ) => {
   const response = await protectedApi.put(`/products/${id}`, product);

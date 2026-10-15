@@ -163,6 +163,13 @@ export const rejectedOrder = async (id: string, reason: string) => {
   return response.data;
 };
 
+export const completePickupOrder = async (id: string) => {
+  const response = await protectedApi.patch(`/orders/${id}/status`, {
+    status: "completed",
+  });
+  return response.data;
+};
+
 export const markAsDelivered = async (
   orderId: string,
   imageUri: string,

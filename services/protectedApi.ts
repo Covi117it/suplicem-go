@@ -30,6 +30,15 @@ protectedApi.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as CustomAxiosRequestConfig | undefined;
 
+    // Si la cuenta fue inactivada en tiempo real por un admin, cerrar la sesión y expulsar al login
+    if (
+      error.response?.status === 403 &&
+      (error.response?.data as any)?.code === "ACCOUNT_INACTIVE"
+    ) {
+      await handleSessionExpired();
+      return Promise.reject(error);
+    }
+
     if (
       !error.response ||
       error.response.status !== 401 ||

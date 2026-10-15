@@ -6,7 +6,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { FilterChips, FilterOption } from "@/components/FilterChips";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useContext } from "react";
+import { AuthContext } from "@/context/authContext";
 import {
   Alert,
   ScrollView,
@@ -37,6 +38,7 @@ const UsersListScreen: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
+  const { user: authUser } = useContext(AuthContext);
   const router = useRouter();
 
   const handleSelectUser = (user: any) => {
@@ -128,6 +130,13 @@ const UsersListScreen: React.FC = () => {
   };
 
   const handleInactivate = async (uid: string) => {
+    if (uid === authUser?.uid) {
+      showAlert({
+        message: "No puedes inactivar tu propia cuenta de administrador.",
+        type: "error",
+      });
+      return;
+    }
     try {
       show();
       const response = await activeOrInactiveUser(uid, "inactive");
@@ -341,7 +350,12 @@ const UsersListScreen: React.FC = () => {
             </View>
           )}
 
-          {["pending", "inactive"].includes(user.status) ? (
+          {user.uid === authUser?.uid ? (
+            <View style={styles.selfBadge}>
+              <Ionicons name="shield-checkmark" size={15} color="#166534" />
+              <Text style={styles.selfBadgeText}>Tu cuenta (Admin)</Text>
+            </View>
+          ) : ["pending", "inactive"].includes(user.status) ? (
             <TouchableOpacity
               style={styles.activateButton}
               onPress={() => handleActivate(user.uid)}
@@ -496,5 +510,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#94A3B8",
     textAlign: "center",
+  },
+  selfBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F0FDF4",
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    gap: 6,
+    marginTop: 8,
+  },
+  selfBadgeText: {
+    color: "#166534",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });

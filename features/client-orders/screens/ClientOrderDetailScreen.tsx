@@ -69,38 +69,58 @@ export const ClientOrderDetailScreen: React.FC<
         onWhatsappDriver={handleWhatsapp}
       />
 
-      {/* 1.1 Progreso General de Entrega (en órdenes fraccionadas o con avance) */}
-      {(isMultiTrip || (tonsInfo.deliveredTons > 0 && tonsInfo.totalTons > 0)) && (
-        <ClientDeliveryProgressBar
-          deliveredTons={tonsInfo.deliveredTons || selectedOrder.deliveredTons || 0}
-          totalTons={tonsInfo.totalTons || selectedOrder.totalTons || 0}
-          items={selectedOrder.items}
-        />
-      )}
-
-      {/* 1.2 Tarjetas de Camiones y Viajes Independientes (Multi-Viaje) o PIN único (Simple) */}
-      {isMultiTrip ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🚚 Camiones en Ruta ({trips.length})</Text>
-          {trips.map((t: any, idx: number) => (
-            <ClientTripCard
-              key={t.id || idx}
-              trip={t}
-              index={idx}
-              onCallDriver={handleCallDriver}
-              onWhatsappDriver={handleWhatsapp}
-              isCementOrder={isCement}
-              cementProductName={selectedOrder.items?.find((i: any) =>
-                i.unit === "fundas" || i.name?.toLowerCase().includes("cemento")
-              )?.name}
+      {/* 1.1 Sección según Tipo de Entrega: Domicilio vs Retiro en Almacén */}
+      {selectedOrder.deliveryType === "domicilio" ? (
+        <>
+          {(isMultiTrip || (tonsInfo.deliveredTons > 0 && tonsInfo.totalTons > 0)) && (
+            <ClientDeliveryProgressBar
+              deliveredTons={tonsInfo.deliveredTons || selectedOrder.deliveredTons || 0}
+              totalTons={tonsInfo.totalTons || selectedOrder.totalTons || 0}
+              items={selectedOrder.items}
             />
-          ))}
-        </View>
+          )}
+
+          {isMultiTrip ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🚚 Camiones en Ruta ({trips.length})</Text>
+              {trips.map((t: any, idx: number) => (
+                <ClientTripCard
+                  key={t.id || idx}
+                  trip={t}
+                  index={idx}
+                  onCallDriver={handleCallDriver}
+                  onWhatsappDriver={handleWhatsapp}
+                  isCementOrder={isCement}
+                  cementProductName={selectedOrder.items?.find((i: any) =>
+                    i.unit === "fundas" || i.name?.toLowerCase().includes("cemento")
+                  )?.name}
+                />
+              ))}
+            </View>
+          ) : (
+            <ClientDeliveryPinCard
+              pin={trip?.deliveryPin}
+              tripStatus={trip?.status}
+            />
+          )}
+        </>
       ) : (
-        <ClientDeliveryPinCard
-          pin={trip?.deliveryPin}
-          tripStatus={trip?.status}
-        />
+        /* Tarjeta Informativa para Retiro en Almacén */
+        <View style={styles.pickupCard}>
+          <View style={styles.pickupHeader}>
+            <Ionicons name="storefront-outline" size={24} color="#0F294A" />
+            <Text style={styles.pickupTitle}>Retiro en Almacén / Planta</Text>
+          </View>
+          <Text style={styles.pickupText}>
+            {selectedOrder.status === "pending"
+              ? "Tu pedido está registrado y pendiente de confirmación. Una vez aprobado por administración, podrás pasar a retirarlo."
+              : selectedOrder.status === "completed"
+              ? "Este pedido ya fue retirado en almacén."
+              : selectedOrder.status === "rejected" || selectedOrder.status === "canceled"
+              ? "Este pedido fue cancelado."
+              : "¡Tu pedido está listo para retiro! Presenta tu número de orden en el almacén para retirar tus materiales."}
+          </Text>
+        </View>
       )}
 
       {/* 2. Banner de Repetir Pedido */}
@@ -189,16 +209,20 @@ export const ClientOrderDetailScreen: React.FC<
         </View>
       ) : null}
 
-      {/* 6. Seguimiento de Pasos */}
-      <ClientOrderTrackingSteps tripStatus={trip?.status} />
+      {/* 6. Seguimiento de Pasos (Solo para entregas a domicilio) */}
+      {selectedOrder.deliveryType === "domicilio" && (
+        <ClientOrderTrackingSteps tripStatus={trip?.status} />
+      )}
 
-      {/* 7. Mapa de Seguimiento en Vivo */}
-      <ClientOrderMap
-        driverLocation={driverLocation}
-        trip={trip}
-        deliveries={selectedOrder.deliveries}
-        orderId={selectedOrder.id}
-      />
+      {/* 7. Mapa de Seguimiento en Vivo (Solo para entregas a domicilio) */}
+      {selectedOrder.deliveryType === "domicilio" && (
+        <ClientOrderMap
+          driverLocation={driverLocation}
+          trip={trip}
+          deliveries={selectedOrder.deliveries}
+          orderId={selectedOrder.id}
+        />
+      )}
     </ScrollView>
   );
 };
@@ -296,5 +320,29 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "600",
+  },
+  pickupCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    padding: 16,
+    marginVertical: 12,
+  },
+  pickupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  pickupTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0F294A",
+  },
+  pickupText: {
+    fontSize: 14,
+    color: "#475569",
+    lineHeight: 20,
   },
 });

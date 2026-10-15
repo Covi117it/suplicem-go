@@ -6,6 +6,7 @@ import { Palette } from "@/constants/theme";
 interface AdminUserActionsBarProps {
   phone?: string;
   status?: string;
+  isSelf?: boolean;
   onCall: (phone?: string) => void;
   onWhatsapp: (phone?: string) => void;
   onToggleStatus: (newStatus: "active" | "inactive") => void;
@@ -14,6 +15,7 @@ interface AdminUserActionsBarProps {
 export const AdminUserActionsBar: React.FC<AdminUserActionsBarProps> = ({
   phone,
   status,
+  isSelf,
   onCall,
   onWhatsapp,
   onToggleStatus,
@@ -40,18 +42,25 @@ export const AdminUserActionsBar: React.FC<AdminUserActionsBarProps> = ({
         <Text style={styles.btnText}>WhatsApp</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.btn, isActive ? styles.inactivateBtn : styles.activateBtn]}
-        onPress={() => onToggleStatus(isActive ? "inactive" : "active")}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name={isActive ? "close-circle-outline" : "checkmark-circle-outline"}
-          size={18}
-          color="#ffffff"
-        />
-        <Text style={styles.btnText}>{isActive ? "Inactivar" : "Activar"}</Text>
-      </TouchableOpacity>
+      {isSelf ? (
+        <View style={[styles.btn, styles.selfBtn]}>
+          <Ionicons name="shield-checkmark" size={18} color="#166534" />
+          <Text style={styles.selfBtnText}>Tu cuenta</Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={[styles.btn, isActive ? styles.inactivateBtn : styles.activateBtn]}
+          onPress={() => onToggleStatus(isActive ? "inactive" : "active")}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isActive ? "close-circle-outline" : "checkmark-circle-outline"}
+            size={18}
+            color="#ffffff"
+          />
+          <Text style={styles.btnText}>{isActive ? "Inactivar" : "Activar"}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -88,5 +97,15 @@ const styles = StyleSheet.create({
   },
   inactivateBtn: {
     backgroundColor: Palette.primary,
+  },
+  selfBtn: {
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  selfBtnText: {
+    color: "#166534",
+    fontWeight: "700",
+    fontSize: 13,
   },
 });

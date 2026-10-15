@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useContext } from "react";
+import { AuthContext } from "@/context/authContext";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -25,6 +26,7 @@ export const AdminUserDetailScreen: React.FC<AdminUserDetailScreenProps> = ({
   userId,
   initialUser,
 }) => {
+  const { user: authUser } = useContext(AuthContext);
   const {
     user,
     refreshing,
@@ -53,6 +55,8 @@ export const AdminUserDetailScreen: React.FC<AdminUserDetailScreenProps> = ({
     );
   }
 
+  const isSelf = Boolean(user?.uid && authUser?.uid && user.uid === authUser.uid);
+
   return (
     <ScrollView
       style={styles.container}
@@ -74,6 +78,7 @@ export const AdminUserDetailScreen: React.FC<AdminUserDetailScreenProps> = ({
       <AdminUserActionsBar
         phone={user.phone}
         status={user.status}
+        isSelf={isSelf}
         onCall={handleCall}
         onWhatsapp={handleWhatsapp}
         onToggleStatus={handleToggleStatus}

@@ -85,9 +85,13 @@ export function useAdminUserDetail(userId?: string, initialUser?: any) {
               } else {
                 showAlert({ message: "No se pudo actualizar el estado", type: "error" });
               }
-            } catch (error) {
+            } catch (error: any) {
               console.error(error);
-              showAlert({ message: "Error al actualizar el estado", type: "error" });
+              const errMsg =
+                error?.response?.data?.message ||
+                error?.message ||
+                "Error al actualizar el estado";
+              showAlert({ message: errMsg, type: "error" });
             } finally {
               hide();
             }

@@ -17,6 +17,9 @@ export const ClientDeliveryPinCard: React.FC<ClientDeliveryPinCardProps> = ({
 
   // Si el viaje no tiene PIN asignado aún (ej. viaje creado previamente)
   if (!pin) {
+    if (tripStatus !== "started" && tripStatus !== "in_progress") {
+      return null;
+    }
     return (
       <View style={[styles.card, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
         <View style={styles.header}>

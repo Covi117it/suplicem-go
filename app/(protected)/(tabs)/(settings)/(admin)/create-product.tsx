@@ -19,6 +19,7 @@ const CreateProductScreen: React.FC = () => {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [type, setType] = useState("");
+  const [weightKg, setWeightKg] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const { show, hide } = useLoading();
   const router = useRouter();
@@ -41,6 +42,15 @@ const CreateProductScreen: React.FC = () => {
     }
   };
 
+  const handleTypeChange = (newType: string) => {
+    setType(newType);
+    if (!weightKg) {
+      if (newType === "cemento") setWeightKg("42.5");
+      else if (newType === "arena") setWeightKg("40");
+      else if (newType === "varilla") setWeightKg("45.36");
+    }
+  };
+
   const handleSubmit = async () => {
     if (!name || !price || !type) {
       Alert.alert(
@@ -50,10 +60,14 @@ const CreateProductScreen: React.FC = () => {
       return;
     }
 
-     const newProduct = {
+    const normalizedUnit = type === "varilla" ? "quintal" : "fundas";
+    const parsedWeight = parseFloat(weightKg) || (type === "cemento" ? 42.5 : type === "arena" ? 40 : 45.36);
+
+    const newProduct = {
       name,
       price: parseFloat(price),
-      unit: type,
+      unit: normalizedUnit,
+      weightKg: parsedWeight,
       imageUri: imageUri || undefined,
     };
 
@@ -97,12 +111,22 @@ const CreateProductScreen: React.FC = () => {
       <CustomPickerModal
         label="Tipo de producto"
         selectedValue={type}
-        onValueChange={setType}
+        onValueChange={handleTypeChange}
         options={[
           { label: "Cemento", value: "cemento" },
           { label: "Varilla", value: "varilla" },
           { label: "Arena", value: "arena" },
         ]}
+      />
+
+      <Text style={styles.label}>Peso por unidad (Kilogramos - kg)</Text>
+      <TextInput
+        style={styles.input}
+        value={weightKg}
+        onChangeText={setWeightKg}
+        placeholder="Ej: 42.5 para cemento gris, 40 para arena"
+        keyboardType="numeric"
+        placeholderTextColor="#999"
       />
 
       <Text style={styles.label}>Imagen del producto</Text>

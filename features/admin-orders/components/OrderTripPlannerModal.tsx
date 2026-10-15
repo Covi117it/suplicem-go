@@ -52,16 +52,24 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
   isSingleTripSplit = false,
   initialDriverId,
 }) => {
+  const isAllCement =
+    (order.items || []).length > 0 &&
+    (order.items || []).every(
+      (item: any) =>
+        item.unit === "fundas" && (item.name || "").toLowerCase().includes("cemento")
+    );
+
   const totalBagsInOrder = (order.items || []).reduce((sum: number, item: any) => {
     const isCement = item.unit === "fundas" || !item.unit || item.name?.toLowerCase().includes("cemento");
     return sum + (isCement ? (Number(item.quantity) || 0) : 0);
   }, 0);
 
   const orderTotalTons = totalAvailableTons > 0 ? totalAvailableTons : (Number(order.totalTons || order.pendingBalance) || 0);
-  const avgFactor = totalBagsInOrder > 0 && orderTotalTons > 0 ? orderTotalTons / totalBagsInOrder : 0.0425;
+  const avgFactor = totalBagsInOrder > 0 && orderTotalTons > 0 && isAllCement ? orderTotalTons / totalBagsInOrder : 0.0425;
   const tonsToBags = (t: number) => Math.round(t / avgFactor);
 
   const minTrips = isSingleTripSplit ? 2 : 1;
+  const maxTrips = Math.min(25, Math.max(6, Math.ceil(orderTotalTons / 15)));
   const [tripCount, setTripCount] = useState<number>(isSingleTripSplit ? 2 : (orderTotalTons > 25 ? 2 : 1));
   const [trips, setTrips] = useState<PlannedTripItem[]>([]);
   const [activeDriverPickerIndex, setActiveDriverPickerIndex] = useState<number | null>(null);
@@ -123,7 +131,7 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
 
 
   const handleTripCountChange = (newCount: number) => {
-    if (newCount < minTrips || newCount > 6) return;
+    if (newCount < minTrips || newCount > maxTrips) return;
     setTripCount(newCount);
     recalculateTrips(newCount, orderTotalTons);
   };
@@ -179,7 +187,7 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
             <View>
               <Text style={styles.title}>{title || "Planificar y Fraccionar Viajes"}</Text>
               <Text style={styles.subtitle}>
-                Total: {orderTotalTons.toFixed(2)} t ({tonsToBags(orderTotalTons).toLocaleString()} fundas)
+                Total: {orderTotalTons.toFixed(2)} t{isAllCement ? ` (${tonsToBags(orderTotalTons).toLocaleString()} fundas)` : ""}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} disabled={isSaving}>
@@ -200,11 +208,11 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
               </TouchableOpacity>
               <Text style={styles.counterValue}>{tripCount}</Text>
               <TouchableOpacity
-                style={[styles.counterBtn, tripCount >= 6 && styles.counterBtnDisabled]}
+                style={[styles.counterBtn, tripCount >= maxTrips && styles.counterBtnDisabled]}
                 onPress={() => handleTripCountChange(tripCount + 1)}
-                disabled={tripCount >= 6 || isSaving}
+                disabled={tripCount >= maxTrips || isSaving}
               >
-                <Ionicons name="add" size={18} color={tripCount >= 6 ? "#94A3B8" : "#0F294A"} />
+                <Ionicons name="add" size={18} color={tripCount >= maxTrips ? "#94A3B8" : "#0F294A"} />
               </TouchableOpacity>
             </View>
           </View>
@@ -220,9 +228,11 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
                 <View key={idx} style={styles.tripCard}>
                   <View style={styles.tripCardHeader}>
                     <Text style={styles.tripCardTitle}>Viaje #{idx + 1}</Text>
-                    <Text style={styles.tripBagsText}>
-                      ~{tonsToBags(item.totalTons).toLocaleString()} fundas
-                    </Text>
+                    {isAllCement && (
+                      <Text style={styles.tripBagsText}>
+                        ~{tonsToBags(item.totalTons).toLocaleString()} fundas
+                      </Text>
+                    )}
                   </View>
 
                   <View style={styles.inputRow}>

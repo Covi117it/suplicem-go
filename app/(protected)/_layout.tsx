@@ -36,6 +36,13 @@ export default function ProtectedLayout() {
     return <Redirect href="/pending-approval" />;
   }
 
+  if (
+    (authState.user as any)?.status === "inactive" ||
+    (authState.user as any)?.status === "banned"
+  ) {
+    return <Redirect href="/login" />;
+  }
+
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>

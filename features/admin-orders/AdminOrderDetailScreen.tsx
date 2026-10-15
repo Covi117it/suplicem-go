@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Trip } from "@/types/trips";
@@ -64,6 +65,7 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     setDeclineReason,
     approveOrder,
     rejectOrder,
+    completePickup,
     refreshAll,
     setFreshOrder,
     updateOrder,
@@ -272,6 +274,21 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     }
   };
 
+  const handleConfirmPickup = () => {
+    Alert.alert(
+      "Confirmar Retiro en Almacén",
+      "¿Confirmas que el cliente ha recibido todos los materiales en el almacén?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Confirmar Entrega",
+          style: "default",
+          onPress: () => completePickup(),
+        },
+      ]
+    );
+  };
+
   if (!currentOrder) {
     return (
       <View style={styles.container}>
@@ -469,6 +486,39 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
             >
               <Text style={styles.buttonText}>Rechazar</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 10. Acción para Pedidos de Retiro en Almacén Aprobados */}
+        {!isEditing && !isDelivery && currentOrder.status === "approved" && (
+          <View style={styles.pickupActionCard}>
+            <View style={styles.pickupActionHeader}>
+              <Ionicons name="storefront" size={24} color="#166534" />
+              <View style={styles.pickupActionTextWrap}>
+                <Text style={styles.pickupActionTitle}>Retiro en Almacén Pendiente</Text>
+                <Text style={styles.pickupActionSubtitle}>
+                  El cliente debe retirar los materiales directamente en el almacén.
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.completePickupButton}
+              onPress={handleConfirmPickup}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.completePickupButtonText}>Confirmar Retiro en Almacén</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 11. Estado Completado para Retiro en Almacén */}
+        {!isDelivery && currentOrder.status === "completed" && (
+          <View style={styles.pickupCompletedCard}>
+            <Ionicons name="checkmark-done-circle" size={26} color="#166534" />
+            <Text style={styles.pickupCompletedText}>
+              Materiales entregados en almacén exitosamente.
+            </Text>
           </View>
         )}
 
@@ -677,5 +727,67 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  pickupActionCard: {
+    backgroundColor: "#F0FDF4",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    padding: 16,
+    marginVertical: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pickupActionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  pickupActionTextWrap: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  pickupActionTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#166534",
+  },
+  pickupActionSubtitle: {
+    fontSize: 13,
+    color: "#15803D",
+    marginTop: 2,
+  },
+  completePickupButton: {
+    backgroundColor: "#166534",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 13,
+    borderRadius: 8,
+  },
+  completePickupButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  pickupCompletedCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DCFCE7",
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    marginVertical: 16,
+    gap: 10,
+  },
+  pickupCompletedText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#166534",
+    flex: 1,
   },
 });

@@ -27,13 +27,20 @@ export const DispatchFractionalTripModal: React.FC<DispatchFractionalTripModalPr
   onConfirm,
   isDispatching,
 }) => {
+  const isAllCement =
+    (order.items || []).length > 0 &&
+    (order.items || []).every(
+      (item: any) =>
+        item.unit === "fundas" && (item.name || "").toLowerCase().includes("cemento")
+    );
+
   const totalBagsInOrder = (order.items || []).reduce((sum: number, item: any) => {
     const isCement = item.unit === "fundas" || !item.unit || item.name?.toLowerCase().includes("cemento");
     return sum + (isCement ? (Number(item.quantity) || 0) : 0);
   }, 0);
 
   const totalOrderTons = Number(order.totalTons || order.pendingBalance) || 0;
-  const avgFactor = totalBagsInOrder > 0 && totalOrderTons > 0 ? totalOrderTons / totalBagsInOrder : 0.0425;
+  const avgFactor = totalBagsInOrder > 0 && totalOrderTons > 0 && isAllCement ? totalOrderTons / totalBagsInOrder : 0.0425;
 
   const orderTonsToBags = (t: number) => Math.round(t / avgFactor);
 
@@ -82,13 +89,13 @@ export const DispatchFractionalTripModal: React.FC<DispatchFractionalTripModalPr
             <View style={styles.balanceRow}>
               <Text style={styles.balanceSubLabel}>Total de la Orden:</Text>
               <Text style={styles.balanceSubValue}>
-                {totalOrderTons.toFixed(2)} t ({totalBagsInOrder.toLocaleString()} fundas)
+                {totalOrderTons.toFixed(2)} t{isAllCement ? ` (${totalBagsInOrder.toLocaleString()} fundas)` : ""}
               </Text>
             </View>
             <View style={styles.balanceRow}>
               <Text style={styles.balanceLabel}>Falta por programar:</Text>
               <Text style={styles.balanceValue}>
-                {availableToDispatch.toFixed(2)} t ({orderTonsToBags(availableToDispatch).toLocaleString()} fundas)
+                {availableToDispatch.toFixed(2)} t{isAllCement ? ` (${orderTonsToBags(availableToDispatch).toLocaleString()} fundas)` : ""}
               </Text>
             </View>
           </View>
