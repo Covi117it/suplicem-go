@@ -79,6 +79,8 @@ export const ClientOrderDetailScreen: React.FC<
         />
       )}
 
+      {selectedOrder.deliveryType === "domicilio" ? (
+        <>
           {isMultiTrip ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>🚚 Camiones en Ruta ({trips.length})</Text>
