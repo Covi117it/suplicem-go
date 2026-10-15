@@ -95,11 +95,35 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
           {orderTrips.map((t, idx) => {
             const assignedDriver = (drivers || []).find((d) => d.uid === t.assignedDriverId);
             const isPendingTrip = t.status === "available" || t.status === "assigned";
+            const getStatusBadge = (status?: string) => {
+              switch (status) {
+                case "assigned":
+                  return { label: "Asignado", color: "#D97706", bg: "#FEF3C7" };
+                case "accepted":
+                  return { label: "Aceptado", color: "#166534", bg: "#DCFCE7" };
+                case "started":
+                case "in_progress":
+                  return { label: "En Camino", color: "#2563EB", bg: "#DBEAFE" };
+                case "completed":
+                  return { label: "Entregado", color: "#15803D", bg: "#F0FDF4" };
+                case "canceled":
+                  return { label: "Cancelado", color: "#DC2626", bg: "#FEE2E2" };
+                case "available":
+                default:
+                  return { label: "Disponible", color: "#475569", bg: "#F1F5F9" };
+              }
+            };
+            const badge = getStatusBadge(t.status);
+
             return (
               <View key={t.id || idx} style={styles.tripItem}>
                 <View style={styles.tripItemHeader}>
                   <Text style={styles.tripNumber}>🚚 {t.tripNumber}</Text>
-                  <Text style={styles.tripStatus}>{t.status || "available"}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+                    <Text style={[styles.statusBadgeText, { color: badge.color }]}>
+                      {badge.label}
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.tripDetails}>
                   Carga: <Text style={styles.bold}>{t.totalTons} t</Text>
@@ -109,6 +133,7 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
                     ? " • Conductor asignado"
                     : " • Bolsa general"}
                 </Text>
+
 
                 {isPendingTrip && (
                   <View style={styles.tripActionsRow}>
@@ -249,12 +274,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0F294A",
   },
-  tripStatus: {
-    fontSize: 11,
-    color: "#0284C7",
-    fontWeight: "600",
-    textTransform: "capitalize",
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
   tripDetails: {
     fontSize: 12,
     color: "#475569",
