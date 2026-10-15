@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Backend de producción en AWS (fallback si no hay variable de entorno)
-const PRODUCTION_API_URL = "http://54.211.170.107/api";
+const PRODUCTION_API_URL = "https://suplicem-admin.duckdns.org/api";
 
 export const getBaseUrl = () => {
   return process.env.EXPO_PUBLIC_API_URL || PRODUCTION_API_URL;
