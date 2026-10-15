@@ -132,3 +132,19 @@ export const splitOrderTrips = async (
   };
 };
 
+export const splitSingleTrip = async (
+  tripId: string,
+  trips: Array<{ totalTons: number; driverId?: string; comments?: string }>
+) => {
+  const result = await safeRequest(() =>
+    protectedApi.post(`/trips/${tripId}/split`, { trips })
+  );
+  if (result.success) {
+    return result.data;
+  }
+  return {
+    success: false,
+    message: result.message || "Error al fraccionar el viaje",
+  };
+};
+

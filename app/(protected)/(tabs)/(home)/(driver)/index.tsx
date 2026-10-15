@@ -1,9 +1,11 @@
 import { AuthContext } from "@/context/authContext";
 import { useLoading } from "@/context/loadingContext";
+import { useAlert } from "@/context/alertContext";
 import { AcceptedTripContext } from "@/context/TripContext";
 import {
   aceptedTrip,
   getDriverActiveTrip,
+  getDriverActualTrips,
   getTripAvailable,
   getTripDetail,
 } from "@/services/tripsService";
@@ -44,9 +46,11 @@ const NoTripsMessage = () => (
 const DriverHomeScreen = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [activeTrip, setActiveTrip] = useState<any>(null);
+  const [actualTrips, setActualTrips] = useState<any[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<DriverTripFilter>("todos");
   const router = useRouter();
   const { show, hide } = useLoading();
+  const { showAlert } = useAlert();
   const { user } = useContext(AuthContext);
   const { trip: contextTrip, saveTrip, clearTrip } = useContext(AcceptedTripContext);
 
@@ -111,6 +115,10 @@ const DriverHomeScreen = () => {
 
   const validateTrips = async () => {
     try {
+      const actualRes = await getDriverActualTrips();
+      const myActuals = actualRes?.data?.trips || [];
+      setActualTrips(Array.isArray(myActuals) ? myActuals : []);
+
       const response = await getDriverActiveTrip();
 
       if (response?.success && response?.data?.hasActiveTrip && response?.data?.trip) {
@@ -196,21 +204,21 @@ const DriverHomeScreen = () => {
       </View>
 
       {/* Banner de Viaje Activo / Aceptado / Asignado */}
-      {activeTrip && (
-        <View style={styles.activeTripCard}>
+      {(actualTrips.length > 0 ? actualTrips : activeTrip ? [activeTrip] : []).map((currTrip) => (
+        <View key={currTrip.id} style={styles.activeTripCard}>
           <View style={styles.activeTripHeaderRow}>
             <View
               style={[
                 styles.activeTripIconCircle,
-                activeTrip.status === "accepted" && { backgroundColor: "#2563EB" },
-                activeTrip.status === "assigned" && { backgroundColor: "#D97706" },
+                currTrip.status === "accepted" && { backgroundColor: "#2563EB" },
+                currTrip.status === "assigned" && { backgroundColor: "#D97706" },
               ]}
             >
               <Ionicons
                 name={
-                  activeTrip.status === "accepted"
+                  currTrip.status === "accepted"
                     ? "checkmark-circle"
-                    : activeTrip.status === "assigned"
+                    : currTrip.status === "assigned"
                     ? "person-add"
                     : "navigate"
                 }
@@ -220,57 +228,67 @@ const DriverHomeScreen = () => {
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.activeTripTitle}>
-                {activeTrip.status === "accepted"
-                  ? `Viaje aceptado: #${activeTrip.tripNumber}`
-                  : activeTrip.status === "assigned"
-                  ? `Viaje asignado: #${activeTrip.tripNumber}`
-                  : `Viaje en curso: #${activeTrip.tripNumber}`}
+                {currTrip.status === "accepted"
+                  ? `Viaje aceptado: #${currTrip.tripNumber}`
+                  : currTrip.status === "assigned"
+                  ? `Viaje asignado: #${currTrip.tripNumber}`
+                  : `Viaje en curso: #${currTrip.tripNumber}`}
               </Text>
               <Text style={styles.activeTripSubtitle}>
-                {activeTrip.status === "accepted"
-                  ? `Listo para iniciar ruta • ${activeTrip.totalTons} Toneladas`
-                  : activeTrip.status === "assigned"
-                  ? `Asignado por administración • ${activeTrip.totalTons} Toneladas`
-                  : `Ruta en camino • ${activeTrip.totalTons} Toneladas`}
+                {currTrip.status === "accepted"
+                  ? `Listo para iniciar ruta • ${currTrip.totalTons} Toneladas`
+                  : currTrip.status === "assigned"
+                  ? `Asignado por administración • ${currTrip.totalTons} Toneladas`
+                  : `Ruta en camino • ${currTrip.totalTons} Toneladas`}
               </Text>
             </View>
             <View
               style={[
                 styles.activeTripStatusBadge,
-                activeTrip.status === "accepted" && { backgroundColor: "#DBEAFE" },
-                activeTrip.status === "assigned" && { backgroundColor: "#FEF3C7" },
+                currTrip.status === "accepted" && { backgroundColor: "#DBEAFE" },
+                currTrip.status === "assigned" && { backgroundColor: "#FEF3C7" },
               ]}
             >
               <Text
                 style={[
                   styles.activeTripStatusText,
-                  activeTrip.status === "accepted" && { color: "#1D4ED8" },
-                  activeTrip.status === "assigned" && { color: "#B45309" },
+                  currTrip.status === "accepted" && { color: "#1D4ED8" },
+                  currTrip.status === "assigned" && { color: "#B45309" },
                 ]}
               >
-                {activeTrip.status === "accepted"
+                {currTrip.status === "accepted"
                   ? "Aceptado"
-                  : activeTrip.status === "assigned"
+                  : currTrip.status === "assigned"
                   ? "Asignado"
                   : "En curso"}
               </Text>
             </View>
           </View>
 
-          {activeTrip.status === "assigned" ? (
+          {currTrip.status === "assigned" ? (
             <TouchableOpacity
               style={[styles.continueTripButton, { backgroundColor: "#16A34A" }]}
               activeOpacity={0.85}
               onPress={async () => {
                 try {
                   show();
-                  const res = await aceptedTrip(activeTrip.id);
+                  const res = await aceptedTrip(currTrip.id);
                   if (res?.success) {
-                    const fullTrip = { ...activeTrip, status: "accepted" };
+                    const fullTrip = { ...currTrip, status: "accepted" };
                     saveTrip(fullTrip);
                     setActiveTrip(fullTrip);
                     router.push("/driver-order");
+                  } else {
+                    showAlert({
+                      message: res?.message || "No se pudo aceptar el viaje.",
+                      type: "error",
+                    });
                   }
+                } catch (error: any) {
+                  showAlert({
+                    message: error?.message || "Error al aceptar el viaje.",
+                    type: "error",
+                  });
                 } finally {
                   hide();
                 }
@@ -283,16 +301,16 @@ const DriverHomeScreen = () => {
             <TouchableOpacity
               style={[
                 styles.continueTripButton,
-                activeTrip.status === "accepted" && { backgroundColor: "#2563EB" },
+                currTrip.status === "accepted" && { backgroundColor: "#2563EB" },
               ]}
               activeOpacity={0.85}
               onPress={() => {
-                saveTrip(activeTrip);
+                saveTrip(currTrip);
                 router.push("/driver-order");
               }}
             >
               <Text style={styles.continueTripButtonText}>
-                {activeTrip.status === "accepted"
+                {currTrip.status === "accepted"
                   ? "Ir al viaje para iniciar ruta"
                   : "Ver detalle del viaje en curso"}
               </Text>
@@ -300,7 +318,7 @@ const DriverHomeScreen = () => {
             </TouchableOpacity>
           )}
         </View>
-      )}
+      ))}
 
         <View style={styles.headerRow}>
         <Text style={styles.title}>Viajes disponibles</Text>
@@ -357,11 +375,7 @@ const DriverHomeScreen = () => {
 
             <View style={styles.cardActionsRow}>
               <TouchableOpacity
-                style={[
-                  styles.acceptCardButton,
-                  hasAcceptedTrip && styles.disabledButton,
-                ]}
-                disabled={hasAcceptedTrip}
+                style={styles.acceptCardButton}
                 activeOpacity={0.8}
                 onPress={async () => {
                   try {
@@ -376,15 +390,15 @@ const DriverHomeScreen = () => {
                       saveTrip({ ...fullTrip, status: "accepted" } as any);
                       router.push("/driver-order");
                     } else {
-                      router.push({
-                        pathname: "/driver-trip-preview",
-                        params: { tripId: trip.id },
+                      showAlert({
+                        message: res?.message || "No se pudo aceptar el viaje.",
+                        type: "error",
                       });
                     }
-                  } catch {
-                    router.push({
-                      pathname: "/driver-trip-preview",
-                      params: { tripId: trip.id },
+                  } catch (error: any) {
+                    showAlert({
+                      message: error?.message || "Error al aceptar el viaje.",
+                      type: "error",
                     });
                   } finally {
                     hide();
@@ -392,26 +406,17 @@ const DriverHomeScreen = () => {
                 }}
               >
                 <Ionicons
-                  name={hasAcceptedTrip ? "lock-closed-outline" : "checkmark-circle"}
+                  name="checkmark-circle"
                   size={18}
-                  color={hasAcceptedTrip ? "#94A3B8" : "#fff"}
+                  color="#fff"
                 />
-                <Text
-                  style={[
-                    styles.buttonText,
-                    hasAcceptedTrip && styles.disabledButtonText,
-                  ]}
-                >
+                <Text style={styles.buttonText}>
                   Aceptar Viaje
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.detailCardButton,
-                  hasAcceptedTrip && styles.disabledButton,
-                ]}
-                disabled={hasAcceptedTrip}
+                style={styles.detailCardButton}
                 activeOpacity={0.8}
                 onPress={() => {
                   router.push({
@@ -423,14 +428,9 @@ const DriverHomeScreen = () => {
                 <Ionicons
                   name="eye-outline"
                   size={18}
-                  color={hasAcceptedTrip ? "#94A3B8" : "#0F294A"}
+                  color="#0F294A"
                 />
-                <Text
-                  style={[
-                    styles.detailButtonText,
-                    hasAcceptedTrip && styles.disabledButtonText,
-                  ]}
-                >
+                <Text style={styles.detailButtonText}>
                   Ver Detalle
                 </Text>
               </TouchableOpacity>

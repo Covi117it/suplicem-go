@@ -38,7 +38,6 @@ export default function DriverTripPreviewScreen() {
   const { show, hide } = useLoading();
   const { showAlert } = useAlert();
   const { trip: activeTrip, saveTrip } = useContext(AcceptedTripContext);
-  const hasOtherActiveTrip = Boolean(activeTrip && activeTrip.id !== tripId);
 
   const [trip, setTrip] = useState<any>(null);
   const [loadingTrip, setLoadingTrip] = useState(true);
@@ -84,14 +83,6 @@ export default function DriverTripPreviewScreen() {
 
   const handleAccept = async () => {
     if (!tripId) return;
-
-    if (hasOtherActiveTrip) {
-      showAlert({
-        message: "Ya tienes un viaje activo. Debes completarlo antes de aceptar uno nuevo.",
-        type: "warning",
-      });
-      return;
-    }
 
     try {
       // Solicitar permisos de ubicación
@@ -330,28 +321,17 @@ export default function DriverTripPreviewScreen() {
       {/* Botón inferior fijo para Aceptar el Viaje */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={[
-            styles.acceptButton,
-            hasOtherActiveTrip && styles.disabledAcceptButton,
-          ]}
+          style={styles.acceptButton}
           onPress={handleAccept}
-          disabled={hasOtherActiveTrip}
           activeOpacity={0.88}
         >
           <Ionicons
-            name={hasOtherActiveTrip ? "lock-closed-outline" : "checkmark-circle-outline"}
+            name="checkmark-circle-outline"
             size={22}
-            color={hasOtherActiveTrip ? "#94A3B8" : "#fff"}
+            color="#fff"
           />
-          <Text
-            style={[
-              styles.acceptButtonText,
-              hasOtherActiveTrip && styles.disabledAcceptButtonText,
-            ]}
-          >
-            {hasOtherActiveTrip
-              ? "Ya tienes un viaje activo"
-              : "Aceptar este Viaje"}
+          <Text style={styles.acceptButtonText}>
+            Aceptar este Viaje
           </Text>
         </TouchableOpacity>
       </View>

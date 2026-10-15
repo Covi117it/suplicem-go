@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useFocusEffect } from "expo-router";
 import { useOrders } from "@/context/orderContext";
 import { useLoading } from "@/context/loadingContext";
@@ -15,6 +15,7 @@ import {
   assignTripDriver,
   updateTripStatus,
   splitOrderTrips,
+  splitSingleTrip,
 } from "@/services/tripsService";
 
 import { getUsers } from "@/services/userService";
@@ -170,7 +171,8 @@ export const useAdminOrderDetail = (orderId?: string) => {
   };
 
   const planAndSplitTrips = async (
-    tripsPlan: Array<{ totalTons: number; driverId?: string; comments?: string }>
+    tripsPlan: Array<{ totalTons: number; driverId?: string; comments?: string }>,
+    silent?: boolean
   ): Promise<boolean> => {
     const targetId = currentOrder?.id;
     if (!targetId || !tripsPlan?.length) return false;
@@ -179,10 +181,12 @@ export const useAdminOrderDetail = (orderId?: string) => {
       show();
       const response = await splitOrderTrips(targetId, tripsPlan);
       if (response?.success) {
-        showAlert({
-          message: `Viajes actualizados y fraccionados en ${tripsPlan.length} despachos.`,
-          type: "success",
-        });
+        if (!silent) {
+          showAlert({
+            message: `Viajes actualizados y fraccionados en ${tripsPlan.length} despachos.`,
+            type: "success",
+          });
+        }
         await refreshAll();
         return true;
       } else {
@@ -196,6 +200,44 @@ export const useAdminOrderDetail = (orderId?: string) => {
       console.error(error);
       showAlert({
         message: error?.message || "Error al planificar los viajes de la orden.",
+        type: "error",
+      });
+      return false;
+    } finally {
+      hide();
+    }
+  };
+
+  const splitSpecificTrip = async (
+    tripId: string,
+    subTrips: Array<{ totalTons: number; driverId?: string; comments?: string }>,
+    silent?: boolean
+  ): Promise<boolean> => {
+    if (!tripId || !subTrips?.length) return false;
+
+    try {
+      show();
+      const response = await splitSingleTrip(tripId, subTrips);
+      if (response?.success) {
+        if (!silent) {
+          showAlert({
+            message: `Viaje fraccionado exitosamente en ${subTrips.length} despachos.`,
+            type: "success",
+          });
+        }
+        await refreshAll();
+        return true;
+      } else {
+        showAlert({
+          message: response?.message || "No se pudo fraccionar el viaje.",
+          type: "error",
+        });
+        return false;
+      }
+    } catch (error: any) {
+      console.error(error);
+      showAlert({
+        message: error?.message || "Error al fraccionar el viaje.",
         type: "error",
       });
       return false;
@@ -252,8 +294,14 @@ export const useAdminOrderDetail = (orderId?: string) => {
   };
 
   // 7. Cálculos de viajes simultáneos y pendientes
-  const orderTrips = allTrips.filter(
-    (t) => t.orderIds?.includes(currentOrder?.id || "") && String(t.status || "").toLowerCase() !== "canceled"
+  const orderTrips = useMemo(
+    () =>
+      allTrips.filter(
+        (t) =>
+          t.orderIds?.includes(currentOrder?.id || "") &&
+          String(t.status || "").toLowerCase() !== "canceled"
+      ),
+    [allTrips, currentOrder?.id]
   );
   const activeTrips = orderTrips.filter((t) =>
     ["available", "assigned", "accepted", "started", "in_progress"].includes(String(t.status || "").toLowerCase())
@@ -314,22 +362,30 @@ export const useAdminOrderDetail = (orderId?: string) => {
     }
   };
 
-  const assignDriverToTrip = async (tripId: string, driverId: string) => {
-    if (!tripId || !driverId) return;
+  const assignDriverToTrip = async (
+    tripId: string,
+    driverId: string,
+    silent?: boolean
+  ): Promise<boolean> => {
+    if (!tripId || !driverId) return false;
     try {
       show();
       const response = await assignTripDriver(tripId, driverId);
       if (response?.success) {
-        showAlert({
-          message: "Conductor asignado al viaje correctamente.",
-          type: "success",
-        });
+        if (!silent) {
+          showAlert({
+            message: "Conductor asignado al viaje correctamente.",
+            type: "success",
+          });
+        }
         await refreshAll();
+        return true;
       } else {
         showAlert({
           message: response?.message || "No se pudo asignar el conductor.",
           type: "error",
         });
+        return false;
       }
     } catch (error: any) {
       console.error(error);
@@ -337,6 +393,7 @@ export const useAdminOrderDetail = (orderId?: string) => {
         message: error?.message || "Error al asignar conductor al viaje.",
         type: "error",
       });
+      return false;
     } finally {
       hide();
     }
@@ -397,6 +454,7 @@ export const useAdminOrderDetail = (orderId?: string) => {
     assignDriverToTrip,
     cancelAndResplitTrip,
     planAndSplitTrips,
+    splitSpecificTrip,
     isDispatching,
     selectedDriverId,
     setSelectedDriverId,

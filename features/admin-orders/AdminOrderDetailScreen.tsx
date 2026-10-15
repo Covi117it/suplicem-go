@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Trip } from "@/types/trips";
 import { DriverSelectionModal } from "./components/DriverSelectionModal";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useAlert } from "@/context/alertContext";
 import { useAdminOrderDetail } from "./hooks/useAdminOrderDetail";
 import { useDeliveryEditor } from "./hooks/useDeliveryEditor";
 import { AdminOrderHeader } from "./components/AdminOrderHeader";
@@ -52,6 +52,7 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     assignDriverToTrip,
     cancelAndResplitTrip,
     planAndSplitTrips,
+    splitSpecificTrip,
     isDispatching,
     selectedDriverId,
     setSelectedDriverId,
@@ -67,6 +68,7 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     setFreshOrder,
     updateOrder,
   } = useAdminOrderDetail(orderId);
+  const { showAlert } = useAlert();
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = async () => {
@@ -81,8 +83,17 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
   const [fractionalModalVisible, setFractionalModalVisible] = useState(false);
   const [plannerModalVisible, setPlannerModalVisible] = useState(false);
   const [isApprovalPlanning, setIsApprovalPlanning] = useState(false);
+  const [tripToSplitDirectly, setTripToSplitDirectly] = useState<Trip | null>(null);
   const [targetTripForDriver, setTargetTripForDriver] = useState<Trip | null>(null);
   const [tripDriverModalVisible, setTripDriverModalVisible] = useState(false);
+
+  // Estados provisionales (staging) durante el modo edición
+  const [pendingSingleTripSplits, setPendingSingleTripSplits] = useState<
+    Array<{ tripId: string; subTrips: PlannedTripItem[] }>
+  >([]);
+  const [pendingDriverAssignments, setPendingDriverAssignments] = useState<Record<string, string>>({});
+  const [pendingAllTripsPlan, setPendingAllTripsPlan] = useState<PlannedTripItem[] | null>(null);
+  const [isTripSaving, setIsTripSaving] = useState(false);
 
   const handleAssignDriverToTrip = (tripToAssign: Trip) => {
     setTargetTripForDriver(tripToAssign);
@@ -91,6 +102,7 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
 
   const handleOpenPlanner = () => {
     setIsApprovalPlanning(false);
+    setTripToSplitDirectly(null);
     setPlannerModalVisible(true);
   };
 
@@ -98,6 +110,7 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     const totalTons = Number(currentOrder?.totalTons || currentOrder?.pendingBalance) || 0;
     if (totalTons > 25 && isDelivery) {
       setIsApprovalPlanning(true);
+      setTripToSplitDirectly(null);
       setPlannerModalVisible(true);
     } else {
       approveOrder();
@@ -108,36 +121,40 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     if (isApprovalPlanning) {
       await approveOrder(plannedTrips);
       setPlannerModalVisible(false);
-    } else {
-      const ok = await planAndSplitTrips(plannedTrips);
-      if (ok) {
+    } else if (tripToSplitDirectly?.id) {
+      if (isEditing) {
+        // En modo edición: diferir el guardado hasta pulsar [Guardar Cambios]
+        setPendingSingleTripSplits((prev) => [
+          ...prev.filter((p) => p.tripId !== tripToSplitDirectly.id),
+          { tripId: tripToSplitDirectly.id!, subTrips: plannedTrips },
+        ]);
         setPlannerModalVisible(false);
+        setTripToSplitDirectly(null);
+      } else {
+        const ok = await splitSpecificTrip(tripToSplitDirectly.id, plannedTrips);
+        if (ok) {
+          setPlannerModalVisible(false);
+          setTripToSplitDirectly(null);
+        }
+      }
+    } else {
+      if (isEditing) {
+        setPendingAllTripsPlan(plannedTrips);
+        setPlannerModalVisible(false);
+      } else {
+        const ok = await planAndSplitTrips(plannedTrips);
+        if (ok) {
+          setPlannerModalVisible(false);
+        }
       }
     }
   };
 
-  const handleCancelAndResplitTrip = (tripToSplit: Trip) => {
-    Alert.alert(
-      "Dividir / Fraccionar Viaje",
-      `¿Deseas cancelar el viaje ${tripToSplit.tripNumber} (${tripToSplit.totalTons} t) para liberar el tonelaje y fraccionarlo en despachos más pequeños?`,
-      [
-        { text: "No, Volver", style: "cancel" },
-        {
-          text: "Sí, Fraccionar",
-          style: "destructive",
-          onPress: async () => {
-            if (tripToSplit.id) {
-              const success = await cancelAndResplitTrip(tripToSplit.id);
-              if (success) {
-                setPlannerModalVisible(true);
-              }
-            }
-          },
-        },
-      ]
-    );
+  const handleStartSplitSingleTrip = (tripToSplit: Trip) => {
+    setIsApprovalPlanning(false);
+    setTripToSplitDirectly(tripToSplit);
+    setPlannerModalVisible(true);
   };
-
 
   const {
     isEditing,
@@ -160,6 +177,100 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
     productOptions,
     documentTypeOptions,
   } = useDeliveryEditor(currentOrder, users, updateOrder, setFreshOrder);
+
+  // Previsualización de viajes en pantalla según los cambios provisionales
+  const displayedOrderTrips = useMemo(() => {
+    if (!isEditing) return orderTrips;
+
+    if (pendingAllTripsPlan && pendingAllTripsPlan.length > 0) {
+      return pendingAllTripsPlan.map((pt, idx) => ({
+        id: `staged-all-${idx}`,
+        tripNumber: `TRIP-${currentOrder?.orderNumber || "ORD"}-${idx + 1}`,
+        totalTons: pt.totalTons,
+        assignedDriverId: pt.driverId,
+        status: pt.driverId ? "assigned" : "available",
+        orderIds: [currentOrder?.id || ""],
+        createdAt: new Date().toISOString(),
+      })) as Trip[];
+    }
+
+    let result = [...orderTrips];
+
+    result = result.map((t) => {
+      if (t.id && pendingDriverAssignments[t.id]) {
+        return {
+          ...t,
+          assignedDriverId: pendingDriverAssignments[t.id],
+          status: "assigned",
+        };
+      }
+      return t;
+    });
+
+    for (const split of pendingSingleTripSplits) {
+      const idx = result.findIndex((t) => t.id === split.tripId);
+      if (idx !== -1) {
+        const orig = result[idx];
+        const newSubTrips: Trip[] = split.subTrips.map((st, sIdx) => ({
+          id: `staged-${split.tripId}-${sIdx}`,
+          tripNumber: `${orig.tripNumber}-${String.fromCharCode(65 + sIdx)}`,
+          totalTons: st.totalTons,
+          assignedDriverId: st.driverId || undefined,
+          status: st.driverId ? "assigned" : "available",
+          orderIds: orig.orderIds,
+          createdAt: new Date().toISOString(),
+        }));
+        result.splice(idx, 1, ...newSubTrips);
+      }
+    }
+
+    return result;
+  }, [orderTrips, isEditing, pendingAllTripsPlan, pendingDriverAssignments, pendingSingleTripSplits, currentOrder?.orderNumber, currentOrder?.id]);
+
+  const handleCancelAll = () => {
+    setPendingSingleTripSplits([]);
+    setPendingDriverAssignments({});
+    setPendingAllTripsPlan(null);
+    handleCancel();
+  };
+
+  const handleSaveAll = async () => {
+    setIsTripSaving(true);
+    let allOk = true;
+    try {
+      const deliveryOk = await handleSave({ silent: true });
+      if (!deliveryOk) allOk = false;
+
+      if (pendingSingleTripSplits.length > 0) {
+        for (const item of pendingSingleTripSplits) {
+          const splitOk = await splitSpecificTrip(item.tripId, item.subTrips, true);
+          if (!splitOk) allOk = false;
+        }
+        if (allOk) setPendingSingleTripSplits([]);
+      }
+
+      if (pendingAllTripsPlan) {
+        const planOk = await planAndSplitTrips(pendingAllTripsPlan, true);
+        if (planOk) setPendingAllTripsPlan(null);
+        else allOk = false;
+      }
+
+      for (const [tId, dId] of Object.entries(pendingDriverAssignments)) {
+        const assignOk = await assignDriverToTrip(tId, dId, true);
+        if (!assignOk) allOk = false;
+      }
+      if (allOk) setPendingDriverAssignments({});
+
+      if (allOk) {
+        showAlert({
+          message: "Cambios guardados correctamente.",
+          type: "success",
+        });
+      }
+    } finally {
+      setIsTripSaving(false);
+    }
+  };
 
   if (!currentOrder) {
     return (
@@ -191,12 +302,12 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
         <AdminOrderHeader
           order={currentOrder}
           isEditing={isEditing}
-          isSaving={isSaving}
+          isSaving={isSaving || isTripSaving}
           editedDeliveryType={editedDeliveryType}
           setEditedDeliveryType={setEditedDeliveryType}
           onEdit={handleEdit}
-          onSave={handleSave}
-          onCancel={handleCancel}
+          onSave={handleSaveAll}
+          onCancel={handleCancelAll}
         />
 
         {/* 2. Resumen financiero y Productos */}
@@ -279,19 +390,21 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
         ) : null}
 
         {/* 8. Progreso de Viajes y Despachos Simultáneos */}
-        {isDelivery && (currentOrder.status === "approved" || !isEditing) && (
+        {isDelivery && (
           <OrderTripsProgressCard
             order={currentOrder}
-            orderTrips={orderTrips}
+            orderTrips={displayedOrderTrips}
             availableToDispatch={availableToDispatch}
             onDispatchNextTrip={() => setFractionalModalVisible(true)}
             isDispatching={isDispatching}
             drivers={drivers}
             onAssignDriverToTrip={handleAssignDriverToTrip}
-            onCancelAndResplitTrip={handleCancelAndResplitTrip}
+            onCancelAndResplitTrip={handleStartSplitSingleTrip}
             onOpenPlanner={handleOpenPlanner}
+            isEditing={isEditing}
           />
         )}
+
 
         {/* 9. Asignación de Conductor Específico para Aprobación Inicial */}
         {isPendingOrRequested && !isEditing && isDelivery && (
@@ -320,14 +433,26 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
 
         <OrderTripPlannerModal
           visible={plannerModalVisible}
-          onClose={() => setPlannerModalVisible(false)}
+          onClose={() => {
+            setPlannerModalVisible(false);
+            setTripToSplitDirectly(null);
+          }}
           order={currentOrder}
-          totalAvailableTons={Number(currentOrder.totalTons || currentOrder.pendingBalance) || 0}
+          totalAvailableTons={
+            tripToSplitDirectly
+              ? Number(tripToSplitDirectly.totalTons) || 0
+              : Number(currentOrder.totalTons || currentOrder.pendingBalance) || 0
+          }
           drivers={drivers}
           allTrips={allTrips}
+          existingOrderTrips={tripToSplitDirectly ? undefined : orderTrips}
           onConfirmPlan={handleConfirmPlan}
           isSaving={isDispatching}
+          title={tripToSplitDirectly ? `Fraccionar Viaje ${tripToSplitDirectly.tripNumber}` : undefined}
+          isSingleTripSplit={Boolean(tripToSplitDirectly)}
+          initialDriverId={tripToSplitDirectly?.assignedDriverId}
         />
+
 
         {/* 9. Botones de Aprobación / Rechazo */}
         {!isEditing && isPendingOrRequested && (
@@ -402,7 +527,14 @@ export const AdminOrderDetailScreen: React.FC<AdminOrderDetailScreenProps> = ({
           selectedDriverId={targetTripForDriver?.assignedDriverId || ""}
           onSelectDriver={(drvId) => {
             if (targetTripForDriver?.id && drvId) {
-              assignDriverToTrip(targetTripForDriver.id, drvId);
+              if (isEditing) {
+                setPendingDriverAssignments((prev) => ({
+                  ...prev,
+                  [targetTripForDriver.id!]: drvId,
+                }));
+              } else {
+                assignDriverToTrip(targetTripForDriver.id, drvId);
+              }
             }
             setTripDriverModalVisible(false);
             setTargetTripForDriver(null);

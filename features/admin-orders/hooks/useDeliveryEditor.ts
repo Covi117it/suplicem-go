@@ -134,7 +134,7 @@ export const useDeliveryEditor = (
     setIsEditing(false);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (options?: { silent?: boolean }): Promise<boolean> => {
     const hasEmptyProduct = editedDeliveries.some(
       (delivery) => !delivery.productId || delivery.productId.length === 0
     );
@@ -144,10 +144,10 @@ export const useDeliveryEditor = (
         message: "Por favor, selecciona un producto para todas las entregas antes de guardar.",
         type: "error",
       });
-      return;
+      return false;
     }
 
-    if (!order?.id || isSaving) return;
+    if (!order?.id || isSaving) return false;
 
     show();
     setIsSaving(true);
@@ -173,17 +173,21 @@ export const useDeliveryEditor = (
           onFreshOrderSet(response.order);
         }
 
-        showAlert({
-          message: response.message || "Cambios guardados correctamente.",
-          type: "success",
-        });
+        if (!options?.silent) {
+          showAlert({
+            message: response.message || "Cambios guardados correctamente.",
+            type: "success",
+          });
+        }
 
         setIsEditing(false);
+        return true;
       } else {
         showAlert({
           message: response?.message || "Ocurrió un error al guardar los cambios.",
           type: "error",
         });
+        return false;
       }
     } catch (error: any) {
       console.error("Error al guardar entregas en el servidor:", error);
@@ -191,6 +195,7 @@ export const useDeliveryEditor = (
         message: error.message || "Ocurrió un error al guardar los cambios.",
         type: "error",
       });
+      return false;
     } finally {
       setIsSaving(false);
       hide();

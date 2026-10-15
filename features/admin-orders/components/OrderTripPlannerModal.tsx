@@ -28,9 +28,15 @@ interface OrderTripPlannerModalProps {
   totalAvailableTons: number;
   drivers: User[];
   allTrips: Trip[];
+  existingOrderTrips?: Trip[];
   onConfirmPlan: (trips: PlannedTripItem[]) => void;
   isSaving?: boolean;
+  title?: string;
+  isSingleTripSplit?: boolean;
+  initialDriverId?: string;
 }
+
+const EMPTY_TRIPS: Trip[] = [];
 
 export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
   visible,
@@ -39,8 +45,12 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
   totalAvailableTons,
   drivers,
   allTrips,
+  existingOrderTrips = EMPTY_TRIPS,
   onConfirmPlan,
   isSaving = false,
+  title,
+  isSingleTripSplit = false,
+  initialDriverId,
 }) => {
   const totalBagsInOrder = (order.items || []).reduce((sum: number, item: any) => {
     const isCement = item.unit === "fundas" || !item.unit || item.name?.toLowerCase().includes("cemento");
@@ -51,18 +61,42 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
   const avgFactor = totalBagsInOrder > 0 && orderTotalTons > 0 ? orderTotalTons / totalBagsInOrder : 0.0425;
   const tonsToBags = (t: number) => Math.round(t / avgFactor);
 
-  const [tripCount, setTripCount] = useState<number>(orderTotalTons > 25 ? 2 : 1);
+  const minTrips = isSingleTripSplit ? 2 : 1;
+  const [tripCount, setTripCount] = useState<number>(isSingleTripSplit ? 2 : (orderTotalTons > 25 ? 2 : 1));
   const [trips, setTrips] = useState<PlannedTripItem[]>([]);
   const [activeDriverPickerIndex, setActiveDriverPickerIndex] = useState<number | null>(null);
 
-  // Inicializar o recalcular los viajes equitativamente al cambiar el número de viajes
+  // Inicializar o cargar los viajes existentes solo cuando se abre el modal
   useEffect(() => {
-    if (visible && orderTotalTons > 0) {
-      const initialCount = orderTotalTons > 25 ? 2 : 1;
+    if (!visible || orderTotalTons <= 0) return;
+
+    if (existingOrderTrips && existingOrderTrips.length > 0 && !isSingleTripSplit) {
+      setTripCount(existingOrderTrips.length);
+      setTrips(
+        existingOrderTrips.map((t) => ({
+          totalTons: Number(t.totalTons) || Number((orderTotalTons / existingOrderTrips.length).toFixed(2)),
+          driverId: t.assignedDriverId || t.driverId || "",
+          comments: t.comments,
+        }))
+      );
+    } else {
+      const initialCount = isSingleTripSplit ? 2 : (orderTotalTons > 25 ? 2 : 1);
       setTripCount(initialCount);
-      recalculateTrips(initialCount, orderTotalTons);
+      const tonsPerTrip = Number((orderTotalTons / initialCount).toFixed(2));
+      const newTrips: PlannedTripItem[] = [];
+      let allocated = 0;
+
+      for (let i = 0; i < initialCount; i++) {
+        const tons = i === initialCount - 1 ? Number((orderTotalTons - allocated).toFixed(2)) : tonsPerTrip;
+        allocated += tons;
+        newTrips.push({
+          totalTons: tons,
+          driverId: i === 0 && initialDriverId ? initialDriverId : "",
+        });
+      }
+      setTrips(newTrips);
     }
-  }, [visible, orderTotalTons]);
+  }, [visible]);
 
   const recalculateTrips = (count: number, total: number) => {
     const tonsPerTrip = Number((total / count).toFixed(2));
@@ -72,16 +106,24 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
     for (let i = 0; i < count; i++) {
       const tons = i === count - 1 ? Number((total - allocated).toFixed(2)) : tonsPerTrip;
       allocated += tons;
+      // Preservar el conductor existente si ya estaba en esa posición o el inicial
+      const existingDriver =
+        trips[i]?.driverId ||
+        (i === 0 && initialDriverId ? initialDriverId : "") ||
+        existingOrderTrips[i]?.assignedDriverId ||
+        existingOrderTrips[i]?.driverId ||
+        "";
       newTrips.push({
         totalTons: tons,
-        driverId: "",
+        driverId: existingDriver,
       });
     }
     setTrips(newTrips);
   };
 
+
   const handleTripCountChange = (newCount: number) => {
-    if (newCount < 1 || newCount > 6) return;
+    if (newCount < minTrips || newCount > 6) return;
     setTripCount(newCount);
     recalculateTrips(newCount, orderTotalTons);
   };
@@ -135,7 +177,7 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
         <View style={styles.container}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Planificar y Fraccionar Viajes</Text>
+              <Text style={styles.title}>{title || "Planificar y Fraccionar Viajes"}</Text>
               <Text style={styles.subtitle}>
                 Total: {orderTotalTons.toFixed(2)} t ({tonsToBags(orderTotalTons).toLocaleString()} fundas)
               </Text>
@@ -150,11 +192,11 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
             <Text style={styles.countLabel}>Número de viajes / camiones:</Text>
             <View style={styles.counterControl}>
               <TouchableOpacity
-                style={[styles.counterBtn, tripCount <= 1 && styles.counterBtnDisabled]}
+                style={[styles.counterBtn, tripCount <= minTrips && styles.counterBtnDisabled]}
                 onPress={() => handleTripCountChange(tripCount - 1)}
-                disabled={tripCount <= 1 || isSaving}
+                disabled={tripCount <= minTrips || isSaving}
               >
-                <Ionicons name="remove" size={18} color={tripCount <= 1 ? "#94A3B8" : "#0F294A"} />
+                <Ionicons name="remove" size={18} color={tripCount <= minTrips ? "#94A3B8" : "#0F294A"} />
               </TouchableOpacity>
               <Text style={styles.counterValue}>{tripCount}</Text>
               <TouchableOpacity

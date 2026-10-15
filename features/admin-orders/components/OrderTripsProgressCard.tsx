@@ -16,6 +16,7 @@ interface OrderTripsProgressCardProps {
   onAssignDriverToTrip?: (trip: Trip) => void;
   onCancelAndResplitTrip?: (trip: Trip) => void;
   onOpenPlanner?: () => void;
+  isEditing?: boolean;
 }
 
 export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
@@ -28,7 +29,9 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
   onAssignDriverToTrip,
   onCancelAndResplitTrip,
   onOpenPlanner,
+  isEditing = false,
 }) => {
+
 
   const totalTons = Number(order.totalTons || order.pendingBalance) || 0;
   const deliveredTons = Number(order.deliveredTons) || 0;
@@ -71,8 +74,8 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
         </View>
       </View>
 
-      {/* Botón de Replanificación / Fraccionar Viajes */}
-      {order.status === "approved" && onOpenPlanner && (
+      {/* Botón de Replanificación / Fraccionar Viajes (Solo en Modo Edición) */}
+      {isEditing && order.status === "approved" && onOpenPlanner && (
         <TouchableOpacity
           style={styles.planButton}
           onPress={onOpenPlanner}
@@ -86,6 +89,7 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
           </Text>
         </TouchableOpacity>
       )}
+
 
       {/* Lista de Viajes Existentes */}
 
@@ -135,7 +139,7 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
                 </Text>
 
 
-                {isPendingTrip && (
+                {isEditing && isPendingTrip && (
                   <View style={styles.tripActionsRow}>
                     {onAssignDriverToTrip && (
                       <TouchableOpacity
@@ -169,8 +173,8 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
         </View>
       )}
 
-      {/* Botón para Despachar Siguiente Viaje si queda saldo disponible */}
-      {availableToDispatch > 0 && order.status === "approved" && (
+      {/* Botón para Despachar Siguiente Viaje si queda saldo disponible (Solo en Modo Edición) */}
+      {isEditing && availableToDispatch > 0 && order.status === "approved" && (
         <TouchableOpacity
           style={styles.dispatchButton}
           onPress={onDispatchNextTrip}
@@ -185,6 +189,7 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
           </Text>
         </TouchableOpacity>
       )}
+
 
       {availableToDispatch <= 0 && totalTons > 0 && (
         <View style={styles.completedBadge}>

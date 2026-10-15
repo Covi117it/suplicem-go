@@ -71,11 +71,11 @@ const { location, stopDriverLocationTracking } = useDriverLocationTracking(trip?
         saveTrip({ ...trip, status: "started" });
         showAlert({ message: "Viaje iniciado. Puedes comenzar la ruta.", type: "success" });
       } else {
-        showAlert({ message: "Error: No se pudo iniciar el viaje.", type: "error" });
+        showAlert({ message: response?.message || "Error: No se pudo iniciar el viaje.", type: "error" });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al iniciar viaje:", error);
-      showAlert({ message: "Error: Ocurrió un error al iniciar el viaje.", type: "error" });
+      showAlert({ message: error?.message || "Error: Ocurrió un error al iniciar el viaje.", type: "error" });
     } finally {
       hide();
     }
