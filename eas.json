@@ -14,7 +14,7 @@
       },
       "env": {
         "EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK": "1",
-        "EXPO_PUBLIC_API_URL": "http://54.211.170.107/api"
+        "EXPO_PUBLIC_API_URL": "https://suplicem-admin.duckdns.org/api"
       }
     },
     "production": {
@@ -23,7 +23,7 @@
       },
       "env": {
         "EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK": "1",
-        "EXPO_PUBLIC_API_URL": "http://54.211.170.107/api"
+        "EXPO_PUBLIC_API_URL": "https://suplicem-admin.duckdns.org/api"
       }
     }
   }
