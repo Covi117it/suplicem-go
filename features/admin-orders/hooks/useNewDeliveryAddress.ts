@@ -53,14 +53,17 @@ export const useNewDeliveryAddress = (
     }
 
     if (newAddressData.recipientDocument) {
-      const isValid =
-        newAddressData.recipientDocumentType === "Cédula"
-          ? isValidCedula(newAddressData.recipientDocument)
-          : isValidPassport(newAddressData.recipientDocument);
+      const docType = (newAddressData.recipientDocumentType || "").toLowerCase();
+      const isCedula = docType.includes("cedula") || docType.includes("cédula");
+      const isValid = isCedula
+        ? isValidCedula(newAddressData.recipientDocument)
+        : isValidPassport(newAddressData.recipientDocument);
 
       if (!isValid) {
         showAlert({
-          message: `El número de ${newAddressData.recipientDocumentType.toLowerCase()} ingresado no es válido.`,
+          message: isCedula
+            ? "El número de cédula ingresado no es válido (debe tener 11 dígitos numéricos)."
+            : "El número de pasaporte ingresado no es válido (debe tener entre 6 y 12 caracteres alfanuméricos).",
           type: "error",
         });
         return;

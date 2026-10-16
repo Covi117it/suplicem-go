@@ -1,4 +1,5 @@
 import * as yup from "yup";
+import { isValidCedula, isValidPassport } from "@/utils/validationUtils";
 
 /**
  * Validador para Nombres y Apellidos:
@@ -20,7 +21,18 @@ export const registerSchema = yup.object({
   identification: yup
     .string()
     .required("Número de identificación requerido")
-    .min(4, "El número de documento es demasiado corto"),
+    .test(
+      "is-valid-document",
+      "El número de cédula debe contener exactamente 11 dígitos numéricos",
+      function (value) {
+        if (!value) return false;
+        const type = (this.parent.identificationType || "").toLowerCase();
+        if (type.includes("cedul")) {
+          return isValidCedula(value);
+        }
+        return isValidPassport(value);
+      }
+    ),
   email: yup
     .string()
     .required("El correo electrónico es obligatorio")

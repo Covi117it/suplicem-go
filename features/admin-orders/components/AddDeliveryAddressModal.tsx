@@ -120,25 +120,25 @@ export const AddDeliveryAddressModal: React.FC<AddDeliveryAddressModalProps> = (
             <TextInput
               style={styles.input}
               maxLength={
-                newAddressData.recipientDocumentType === "Cédula" ? 11 : 12
+                (newAddressData.recipientDocumentType || "").toLowerCase().includes("cedul") ? 11 : 12
               }
               keyboardType={
-                newAddressData.recipientDocumentType === "Cédula"
+                (newAddressData.recipientDocumentType || "").toLowerCase().includes("cedul")
                   ? "numeric"
                   : "default"
               }
               placeholder={
-                newAddressData.recipientDocumentType === "Cédula"
+                (newAddressData.recipientDocumentType || "").toLowerCase().includes("cedul")
                   ? "Número de Cédula (11 dígitos)"
                   : "Número de Pasaporte (6-12 caracteres)"
               }
               placeholderTextColor="#999"
               value={newAddressData.recipientDocument}
               onChangeText={(text) => {
-                const validatedText =
-                  newAddressData.recipientDocumentType === "Cédula"
-                    ? text.replace(/[^0-9]/g, "")
-                    : text;
+                const isCedula = (newAddressData.recipientDocumentType || "").toLowerCase().includes("cedul");
+                const validatedText = isCedula
+                  ? text.replace(/[^0-9]/g, "")
+                  : text;
                 setNewAddressData((prev: any) => ({
                   ...prev,
                   recipientDocument: validatedText,
