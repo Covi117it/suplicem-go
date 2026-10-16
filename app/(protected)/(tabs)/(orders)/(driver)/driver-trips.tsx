@@ -22,8 +22,10 @@ type StatusInfo = {
 export const statusMap: Record<string, StatusInfo> = {
   completed: { text: "Finalizado", color: "#4CAF50" },
   accepted: { text: "Aceptado", color: "#0047AB" },
+  assigned: { text: "Asignado", color: "#D97706" },
   canceled: { text: "Cancelado", color: "#F44336" },
   started: { text: "En curso", color: "#2196F3" },
+  in_progress: { text: "En curso", color: "#2196F3" },
   available: { text: "Disponible", color: "#A020F0" },
   default: { text: "Desconocido", color: "#9E9E9E" },
 };

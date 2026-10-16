@@ -79,9 +79,11 @@ const TripsScreen: React.FC = () => {
 
   const statusTranslation: Record<string, StatusInfo> = {
     available: { text: "Pendiente", color: "#FFA500" },
+    assigned: { text: "Asignado", color: "#D97706" },
     accepted: { text: "Aceptado", color: "#0047AB" },
     canceled: { text: "Cancelado", color: "#F44336" },
     started: { text: "Iniciado", color: "#2196F3" },
+    in_progress: { text: "En curso", color: "#2196F3" },
     completed: { text: "Finalizado", color: "#4CAF50" },
     default: { text: "Desconocido", color: "#9E9E9E" },
   };
@@ -99,6 +101,9 @@ const TripsScreen: React.FC = () => {
       let status = t.status || "default";
       if (status === "started" || status === "in_progress") {
         status = "accepted";
+      }
+      if (status === "assigned") {
+        status = "available";
       }
       if (counts[status] !== undefined) {
         counts[status] = (counts[status] || 0) + 1;
@@ -122,6 +127,7 @@ const TripsScreen: React.FC = () => {
       statusFilter === "Todos" ||
       (statusFilter === "fractional" && isTripFractional(trip.tripNumber)) ||
       trip.status === statusFilter ||
+      (statusFilter === "available" && trip.status === "assigned") ||
       (statusFilter === "accepted" &&
         (trip.status === "started" || trip.status === "in_progress"));
 
