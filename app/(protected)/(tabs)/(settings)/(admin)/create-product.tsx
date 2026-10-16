@@ -73,15 +73,20 @@ const CreateProductScreen: React.FC = () => {
 
     try {
       show();
-      await createProduct(newProduct);
+      const res = await createProduct(newProduct);
       hide();
+
+      if (res && res.success === false) {
+        Alert.alert("Error", res.message || "Hubo un problema al crear el producto.");
+        return;
+      }
 
       Alert.alert("Éxito", "Producto creado correctamente.");
       router.back();
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error al crear producto:", error);
       hide();
-      Alert.alert("Error", "Hubo un problema al crear el producto.");
+      Alert.alert("Error", error?.message || "Hubo un problema al crear el producto.");
     }
   };
 
