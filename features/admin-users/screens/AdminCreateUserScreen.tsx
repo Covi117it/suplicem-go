@@ -1,5 +1,7 @@
 import React from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -44,7 +46,17 @@ export const AdminCreateUserScreen: React.FC = () => {
   } = useAdminCreateUser();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <Text style={styles.title}>Crear Nueva Cuenta de Usuario</Text>
 
       <CustomPickerModal
@@ -156,7 +168,8 @@ export const AdminCreateUserScreen: React.FC = () => {
             : "Crear Cliente en Servidor"}
         </Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -167,7 +180,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 90,
+    paddingBottom: 140,
   },
   title: {
     fontSize: 22,
