@@ -171,7 +171,7 @@ export const RegisterPersonalFields: React.FC<RegisterPersonalFieldsProps> = ({
             <Text style={styles.error}>{errors.identification.message}</Text>
           )}
 
-          {identificationType === "Cedula" && onLookupCedula && (
+          {__DEV__ && identificationType === "Cedula" && onLookupCedula && (
             <TouchableOpacity
               style={styles.lookupButton}
               onPress={onLookupCedula}

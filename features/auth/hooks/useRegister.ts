@@ -113,6 +113,7 @@ export const useRegister = () => {
   };
 
   const handleLookupCedula = async () => {
+    if (!__DEV__) return;
     const rawId = watch("identification") || "";
     const cleanCedula = rawId.replace(/[^0-9]/g, "");
 
