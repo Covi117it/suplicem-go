@@ -30,13 +30,25 @@ const ClientOrdersMainScreen: React.FC = () => {
 
   const { orders, setOrders } = useOrders();
   const { showAlert } = useAlert();
+  const lastFetchedAtRef = React.useRef<number>(0);
+  const isFetchingRef = React.useRef<boolean>(false);
 
-  const fetchOrders = async (isPullToRefresh = false) => {
+  const fetchOrders = useCallback(async (isPullToRefresh = false) => {
+    if (isFetchingRef.current) return;
+
+    // Si no es pull-to-refresh y ya consultamos hace menos de 15 segundos, reutilizar estado en memoria
+    const now = Date.now();
+    if (!isPullToRefresh && orders.length > 0 && now - lastFetchedAtRef.current < 15_000) {
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       if (isPullToRefresh) setRefreshing(true);
       const response = await getMyOrders();
       if (response && response.orders && Array.isArray(response.orders)) {
         setOrders(response.orders);
+        lastFetchedAtRef.current = Date.now();
       } else {
         setOrders([]);
       }
@@ -47,14 +59,15 @@ const ClientOrdersMainScreen: React.FC = () => {
         type: "error",
       });
     } finally {
+      isFetchingRef.current = false;
       if (isPullToRefresh) setRefreshing(false);
     }
-  };
+  }, [orders.length, setOrders, showAlert]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchOrders();
-    }, [])
+      fetchOrders(false);
+    }, [fetchOrders])
   );
 
   // Conteo automático por categoría
