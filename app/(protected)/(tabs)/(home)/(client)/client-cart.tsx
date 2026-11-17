@@ -263,9 +263,11 @@ const CartScreen: React.FC = () => {
       unit: item.unit || "fundas",
     }));
 
+    const isSeller = user?.userType === "seller";
     const dataToSend: any = {
       userId: assistedClient ? assistedClient.uid : undefined,
-      createdBySellerId: assistedClient ? user?.uid : undefined,
+      createdBySellerId: assistedClient && isSeller ? user?.uid : undefined,
+      createdByAdminId: assistedClient && !isSeller ? user?.uid : undefined,
       deliveryType,
       deliveryAddress: deliveryType === "domicilio" ? selectedAddress : undefined,
       deliveries: formattedDeliveries,

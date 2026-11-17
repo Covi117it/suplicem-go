@@ -61,6 +61,9 @@ export const createOrder = async (
     comments?: string;
     receiptImage?: string;
     idempotencyKey?: string;
+    userId?: string;
+    createdBySellerId?: string;
+    createdByAdminId?: string;
   },
   idempotencyKey?: string
 ) => {
