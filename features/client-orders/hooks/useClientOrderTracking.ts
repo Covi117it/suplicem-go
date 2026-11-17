@@ -1,12 +1,16 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Linking } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { getOrderTracking } from "@/services/orderService";
+import { socketService } from "@/services/socketService";
+import { getAuthSession } from "@/utils/authStorage";
 
 export const useClientOrderTracking = (selectedOrder?: any) => {
   const [driverLocation, setDriverLocation] = useState<{
     latitude: number;
     longitude: number;
+    heading?: number;
+    speed?: number;
   } | null>(null);
   const [trip, setTrip] = useState<any>(null);
   const [trips, setTrips] = useState<any[]>([]);
@@ -57,6 +61,8 @@ export const useClientOrderTracking = (selectedOrder?: any) => {
           setDriverLocation({
             latitude: location.latitude,
             longitude: location.longitude,
+            heading: location.heading,
+            speed: location.speed,
           });
         }
       }
@@ -64,6 +70,48 @@ export const useClientOrderTracking = (selectedOrder?: any) => {
       console.error("Error al obtener tracking de orden:", error);
     }
   }, [selectedOrder?.id, selectedOrder?.totalTons, selectedOrder?.deliveredTons, selectedOrder?.pendingBalance]);
+
+  // Suscripción WebSocket en tiempo real para seguimiento del camión
+  useEffect(() => {
+    if (!trip?.id) return;
+
+    let isMounted = true;
+
+    const setupSocket = async () => {
+      const session = await getAuthSession();
+      if (!session?.token || !isMounted) return;
+
+      socketService.connect(session.token);
+      socketService.joinTrip(trip.id);
+
+      const unsubscribe = socketService.onLocationUpdate((data) => {
+        if (!isMounted) return;
+        if (data.tripId === trip.id) {
+          setDriverLocation({
+            latitude: data.lat,
+            longitude: data.lng,
+            heading: data.heading,
+            speed: data.speed,
+          });
+          setTrip((prev: any) =>
+            prev ? { ...prev, location: { latitude: data.lat, longitude: data.lng } } : prev
+          );
+        }
+      });
+
+      return unsubscribe;
+    };
+
+    let cleanupPromise = setupSocket();
+
+    return () => {
+      isMounted = false;
+      cleanupPromise.then((unsubscribe) => {
+        if (unsubscribe) unsubscribe();
+        socketService.leaveTrip(trip.id);
+      });
+    };
+  }, [trip?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -76,7 +124,7 @@ export const useClientOrderTracking = (selectedOrder?: any) => {
 
       const interval = setInterval(() => {
         refreshDriverLocationAndTripStatus();
-      }, 15000);
+      }, 45000);
 
       return () => clearInterval(interval);
     }, [selectedOrder, refreshDriverLocationAndTripStatus])

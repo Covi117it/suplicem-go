@@ -5,7 +5,12 @@ import { calculateTripEstimate, WAREHOUSE_LOCATION } from "@/utils/tripEstimate"
 import { useTripRoute } from "@/hooks/useTripRoute";
 
 interface ClientOrderMapProps {
-  driverLocation: { latitude: number; longitude: number } | null;
+  driverLocation: {
+    latitude: number;
+    longitude: number;
+    heading?: number;
+    speed?: number;
+  } | null;
   trip: any;
   deliveries?: any[];
   orderId?: string;
@@ -17,6 +22,22 @@ export const ClientOrderMap: React.FC<ClientOrderMapProps> = ({
   deliveries,
   orderId,
 }) => {
+  const markerRef = React.useRef<any>(null);
+
+  // Animación suave a 60 FPS hacia la nueva posición
+  React.useEffect(() => {
+    if (markerRef.current && driverLocation) {
+      if (typeof markerRef.current.animateMarkerToCoordinate === "function") {
+        markerRef.current.animateMarkerToCoordinate(
+          {
+            latitude: driverLocation.latitude,
+            longitude: driverLocation.longitude,
+          },
+          3500
+        );
+      }
+    }
+  }, [driverLocation?.latitude, driverLocation?.longitude]);
   const firstDelivery = deliveries?.find(
     (d: any) => d?.address?.latitude && d?.address?.longitude
   );
@@ -82,10 +103,14 @@ export const ClientOrderMap: React.FC<ClientOrderMapProps> = ({
         {/* Punto de Partida: Almacén u Ubicación actual del camión */}
         {driverLocation ? (
           <Marker
+            ref={markerRef}
             key="client-map-truck"
             coordinate={driverLocation}
             title="🏢 Camión en ruta"
             description="Ubicación del chofer"
+            rotation={driverLocation.heading || 0}
+            anchor={{ x: 0.5, y: 0.5 }}
+            flat={true}
           >
             <Image
               source={require("@/assets/images/camion.png")}

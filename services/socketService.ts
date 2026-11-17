@@ -67,8 +67,13 @@ export const socketService = {
   },
 
   joinTrip(tripId: string) {
-    if (socket?.connected && tripId) {
+    if (!socket || !tripId) return;
+    if (socket.connected) {
       socket.emit("client:watch_trip", tripId);
+    } else {
+      socket.once("connect", () => {
+        socket?.emit("client:watch_trip", tripId);
+      });
     }
   },
 
@@ -76,5 +81,21 @@ export const socketService = {
     if (socket?.connected && tripId) {
       socket.emit("client:leave_trip", tripId);
     }
+  },
+
+  onLocationUpdate(
+    callback: (data: {
+      tripId: string;
+      lat: number;
+      lng: number;
+      speed?: number;
+      heading?: number;
+    }) => void
+  ): () => void {
+    if (!socket) return () => {};
+    socket.on("trip:location_update", callback);
+    return () => {
+      socket?.off("trip:location_update", callback);
+    };
   },
 };
