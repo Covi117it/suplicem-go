@@ -57,8 +57,8 @@ export async function startBackgroundLocationUpdates(): Promise<boolean> {
     if (!isStarted) {
       await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.Balanced,
-        timeInterval: 5000,    
-        distanceInterval: 10,  
+        timeInterval: 10000,    
+        distanceInterval: 15,  
         foregroundService: {
           notificationTitle: "Suplicem Go en ruta",
           notificationBody: "Transmitiendo ubicación del viaje en tiempo real...",
