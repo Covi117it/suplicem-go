@@ -87,14 +87,16 @@ export const useClientOrderTracking = (selectedOrder?: any) => {
       const unsubscribe = socketService.onLocationUpdate((data) => {
         if (!isMounted) return;
         if (data.tripId === trip.id) {
+          const lat = (data as any).lat ?? (data as any).latitude;
+          const lng = (data as any).lng ?? (data as any).longitude;
           setDriverLocation({
-            latitude: data.lat,
-            longitude: data.lng,
+            latitude: lat,
+            longitude: lng,
             heading: data.heading,
             speed: data.speed,
           });
           setTrip((prev: any) =>
-            prev ? { ...prev, location: { latitude: data.lat, longitude: data.lng } } : prev
+            prev ? { ...prev, location: { latitude: lat, longitude: lng } } : prev
           );
         }
       });
