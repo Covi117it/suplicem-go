@@ -362,7 +362,7 @@ const UsersListScreen: React.FC = () => {
               <Text style={styles.driverIdAdminText}>
                 ID Conductor:{" "}
                 <Text style={{ fontWeight: "bold", color: "#E31E24" }}>
-                  {user.driverCode || (user.uid ? `COND-${user.uid.slice(0, 5).toUpperCase()}` : "COND-XXXX")}
+                  {user.driverCode || "Pendiente de aprobación"}
                 </Text>
               </Text>
             </View>

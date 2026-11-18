@@ -212,9 +212,10 @@ export const useRegister = () => {
       return;
     }
 
-    if (!identificationImage && !isEmpresa && !isPhone) {
+    // Obligatorio para personas físicas en ambos métodos (Correo y Teléfono)
+    if (!identificationImage && !isEmpresa) {
       showAlert({
-        message: "Debes adjuntar la foto de tu cédula o pasaporte para la verificación de cuenta por el administrador.",
+        message: "Debes adjuntar la foto de tu cédula o pasaporte para completar tu registro y pasar a verificación.",
         type: "warning",
       });
       return;
@@ -240,7 +241,9 @@ export const useRegister = () => {
 
     if (isPhone) {
       delete payload.password;
-      delete payload.identificationImage;
+      delete payload.vehicle; // Los choferes no se registran por teléfono
+      payload.userType = "client"; // Forzar rol cliente en SMS
+      payload.identificationImage = identificationImage;
       if (!payload.email) delete payload.email;
       await phoneRegistration.requestCode(payload);
       return;

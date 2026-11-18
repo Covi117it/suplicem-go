@@ -86,8 +86,8 @@ export const RegisterScreen: React.FC = () => {
           }}
         />
 
-        {/* Solo personas físicas deben subir foto de identificación */}
-        {personType !== "juridica" && registerMethod !== "phone" && (
+        {/* Foto de identificación obligatoria para personas físicas (Tanto en Teléfono como en Correo) */}
+        {personType !== "juridica" && (
           <RegisterIdUploadCard
             identificationImage={identificationImage}
             onPickImage={handlePickIdImage}
@@ -95,8 +95,8 @@ export const RegisterScreen: React.FC = () => {
           />
         )}
 
-        {/* Las empresas son exclusivamente Clientes; solo personas físicas eligen rol */}
-        {personType !== "juridica" && (
+        {/* Solo personas físicas registrándose por Correo eligen rol (Cliente o Conductor) */}
+        {personType !== "juridica" && registerMethod === "email" && (
           <>
             <Controller
               control={control}
