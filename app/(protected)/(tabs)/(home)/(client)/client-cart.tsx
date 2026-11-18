@@ -63,6 +63,7 @@ const CartScreen: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "credit">("transfer");
   const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>([]);
   const [selectedBankId, setSelectedBankId] = useState("");
+  const [bankReferenceNumber, setBankReferenceNumber] = useState("");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [creditNote, setCreditNote] = useState<string>("");
 
@@ -204,6 +205,14 @@ const CartScreen: React.FC = () => {
       return;
     }
 
+    if (paymentMethod === "transfer" && !bankReferenceNumber.trim()) {
+      showAlert({
+        message: "Por favor, ingresa el número de referencia del depósito o transferencia bancaria.",
+        type: "warning",
+      });
+      return;
+    }
+
     if (deliveryType === "domicilio") {
       if (!selectedAddress || !selectedAddress.description?.trim()) {
         showAlert({
@@ -274,6 +283,7 @@ const CartScreen: React.FC = () => {
       items: formattedItems,
       paymentMethod,
       bankAccountId: paymentMethod === "transfer" ? selectedBankId : undefined,
+      bankReferenceNumber: paymentMethod === "transfer" ? bankReferenceNumber.trim() : undefined,
       creditNote: paymentMethod === "credit" ? creditNote.trim() : undefined,
       comments: reference.trim(),
     };
@@ -413,6 +423,8 @@ const CartScreen: React.FC = () => {
                 creditNote={creditNote}
                 onChangeCreditNote={setCreditNote}
                 hasAssignedSeller={hasAssignedSeller}
+                bankReferenceNumber={bankReferenceNumber}
+                onChangeBankReferenceNumber={setBankReferenceNumber}
               />
 
               <Text style={styles.totalText}>
