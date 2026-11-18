@@ -97,10 +97,14 @@ const DriverSettingsMainScreen: React.FC = () => {
           type: "success",
         });
         setIsEditing(false);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error en actualización del conductor:", error);
+        const errorMsg =
+          error?.response?.data?.message ||
+          error?.message ||
+          "No se pudo actualizar el perfil. Inténtelo de nuevo.";
         showAlert({
-          message: "No se pudo actualizar el perfil. Inténtelo de nuevo.",
+          message: errorMsg,
           type: "error",
         });
       } finally {
