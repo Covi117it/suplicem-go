@@ -255,7 +255,7 @@ export const OrderTripPlannerModal: React.FC<OrderTripPlannerModalProps> = ({
                     <Text style={styles.driverBtnText} numberOfLines={1}>
                       {assignedDriver
                         ? `[${assignedDriver.driverCode || "COND"}] ${assignedDriver.names} ${assignedDriver.lastNames} (${driverCap} t)`
-                        : "🌐 Sin asignar (Bolsa General)"}
+                        : "Seleccionar Conductor"}
                     </Text>
                     <Ionicons name="chevron-forward" size={16} color="#64748B" />
                   </TouchableOpacity>

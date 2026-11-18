@@ -32,6 +32,7 @@ export const useActiveTripExecution = () => {
 
   const [expandedOrderIndex, setExpandedOrderIndex] = useState<number | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [isDeliveryModalVisible, setIsDeliveryModalVisible] = useState(false);
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -118,26 +119,39 @@ export const useActiveTripExecution = () => {
   };
 
   const confirmCancelTrip = async () => {
-    setIsCancelModalVisible(false);
     if (!trip?.id) {
       showAlert({ message: "Error: No se encontró el ID del viaje.", type: "error" });
       return;
     }
+    const trimmedReason = cancelReason.trim();
+    if (trimmedReason.length < 5) {
+      showAlert({
+        message: "Debes ingresar un motivo de al menos 5 caracteres justificando la cancelación.",
+        type: "warning",
+      });
+      return;
+    }
+
+    setIsCancelModalVisible(false);
     try {
       show();
-      const response = await startOrCancelrip(trip.id, "available");
-      if (response.success) {
+      const response = await updateTripStatus(trip.id, "canceled", trimmedReason);
+      if (response?.success) {
         stopDriverLocationTracking();
         await stopBackgroundLocationUpdates();
         clearTrip();
-        showAlert({ message: "El viaje se ha cancelado correctamente.", type: "success" });
+        setCancelReason("");
+        showAlert({
+          message: "El viaje ha sido cancelado. Se notificó al Administrador para su reasignación.",
+          type: "success",
+        });
         navigateBack();
       } else {
-        showAlert({ message: "Error: No se pudo cancelar el viaje.", type: "error" });
+        showAlert({ message: response?.message || "Error al cancelar el viaje.", type: "error" });
       }
-    } catch (error) {
-      console.error("❌ Error al cancelar viaje:", error);
-      showAlert({ message: "Error: Ocurrió un error al cancelar el viaje.", type: "error" });
+    } catch (error: any) {
+      console.error("❌ Error al cancelar viaje en curso:", error);
+      showAlert({ message: error?.message || "Error al cancelar el viaje.", type: "error" });
     } finally {
       hide();
     }
@@ -214,6 +228,8 @@ export const useActiveTripExecution = () => {
     location,
     expandedOrderIndex,
     isCancelModalVisible,
+    cancelReason,
+    setCancelReason,
     isDeliveryModalVisible,
     isPinModalVisible,
     setIsPinModalVisible,

@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import StatusBadge from "@/components/StatusBadge";
 import CheckRender from "@/components/CheckRender";
 import CancelTripModal from "./components/CancelTripModal";
+import ReassignDriverModal from "./components/ReassignDriverModal";
 import AppButton from "@/components/ui/AppButton";
 import { DriverTripMap } from "@/components/driver/DriverTripMap";
 import { useAdminTripDetail } from "./hooks/useAdminTripDetail";
@@ -21,6 +22,11 @@ export const AdminTripDetailScreen: React.FC = () => {
     handleCancelTrip,
     handleForceCompleteTrip,
     isTerminalStatus,
+    isReassignModalVisible,
+    setIsReassignModalVisible,
+    availableDrivers,
+    loadDrivers,
+    handleReassignDriver,
   } = useAdminTripDetail();
 
   if (!trip) {
@@ -46,7 +52,11 @@ export const AdminTripDetailScreen: React.FC = () => {
         </View>
 
         <CheckRender allowed={Boolean(trip.driver)}>
-          <AdminTripDriverCard driver={trip.driver} />
+          <AdminTripDriverCard
+            driver={trip.driver}
+            title={trip.status === "canceled" ? "Conductor que rechazó / canceló" : "Datos del conductor"}
+            badge={trip.status === "canceled" ? "⚠️ Cancelado por conductor" : undefined}
+          />
         </CheckRender>
 
         <AdminTripOrdersList orders={trip.orders || []} />
@@ -64,6 +74,11 @@ export const AdminTripDetailScreen: React.FC = () => {
           <View style={styles.cancellationBox}>
             <Text style={styles.cancellationLabel}>Motivo de cancelación:</Text>
             <Text style={styles.cancellationText}>{trip.cancellationReason}</Text>
+            {Boolean((trip as any).canceledAt) && (
+              <Text style={styles.cancellationDateText}>
+                Fecha: {new Date((trip as any).canceledAt).toLocaleString()}
+              </Text>
+            )}
           </View>
         )}
 
@@ -79,20 +94,32 @@ export const AdminTripDetailScreen: React.FC = () => {
             <Text style={styles.pinValue}>{trip.deliveryPin}</Text>
           </View>
         )}
-        {!isTerminalStatus && (
+        {trip.status !== "completed" && (
           <View style={styles.actionButtonsContainer}>
             <AppButton
-              title="✅ Completar Entrega Directamente"
-              variant="primary"
-              style={styles.completeButton}
-              onPress={handleForceCompleteTrip}
+              title="🔄 Reasignar a otro conductor"
+              variant="outline"
+              onPress={() => {
+                loadDrivers();
+                setIsReassignModalVisible(true);
+              }}
             />
-            <AppButton
-              title="🛑 Cancelar Viaje Definitivamente"
-              variant="danger-outline"
-              style={styles.cancelButton}
-              onPress={() => setIsCancelModalVisible(true)}
-            />
+            {trip.status !== "canceled" && (
+              <>
+                <AppButton
+                  title="✅ Completar Entrega Directamente"
+                  variant="primary"
+                  style={styles.completeButton}
+                  onPress={handleForceCompleteTrip}
+                />
+                <AppButton
+                  title="🛑 Cancelar Viaje Definitivamente"
+                  variant="danger-outline"
+                  style={styles.cancelButton}
+                  onPress={() => setIsCancelModalVisible(true)}
+                />
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -106,6 +133,14 @@ export const AdminTripDetailScreen: React.FC = () => {
           setIsCancelModalVisible(false);
           setCancellationReason("");
         }}
+      />
+
+      <ReassignDriverModal
+        visible={isReassignModalVisible}
+        onClose={() => setIsReassignModalVisible(false)}
+        drivers={availableDrivers}
+        onSelectDriver={handleReassignDriver}
+        tripNumber={trip.tripNumber}
       />
     </>
   );
@@ -186,6 +221,12 @@ const styles = StyleSheet.create({
   cancellationText: {
     fontSize: 14,
     color: "#7F1D1D",
+  },
+  cancellationDateText: {
+    fontSize: 12,
+    color: "#991B1B",
+    marginTop: 6,
+    fontStyle: "italic",
   },
   cancelButton: {
     marginTop: 0,

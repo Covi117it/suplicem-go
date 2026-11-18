@@ -98,7 +98,12 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
           <Text style={styles.subTitle}>Viajes generados ({orderTrips.length}):</Text>
           {orderTrips.map((t, idx) => {
             const assignedDriver = (drivers || []).find((d) => d.uid === t.assignedDriverId);
-            const isPendingTrip = t.status === "available" || t.status === "assigned";
+            const isAssignable =
+              t.status === "available" ||
+              t.status === "assigned" ||
+              t.status === "accepted" ||
+              t.status === "canceled";
+            const canResplit = t.status === "available" || t.status === "assigned";
             const getStatusBadge = (status?: string) => {
               switch (status) {
                 case "assigned":
@@ -135,11 +140,11 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
                     ? ` • [${assignedDriver.driverCode || "COND"}] ${assignedDriver.names} ${assignedDriver.lastNames}`
                     : t.assignedDriverId
                     ? " • Conductor asignado"
-                    : " • Bolsa general"}
+                    : " • Sin conductor"}
                 </Text>
 
 
-                {isEditing && isPendingTrip && (
+                {isEditing && isAssignable && (
                   <View style={styles.tripActionsRow}>
                     {onAssignDriverToTrip && (
                       <TouchableOpacity
@@ -149,11 +154,15 @@ export const OrderTripsProgressCard: React.FC<OrderTripsProgressCardProps> = ({
                       >
                         <Ionicons name="person-outline" size={13} color="#0F294A" />
                         <Text style={styles.actionBtnText}>
-                          {t.assignedDriverId ? "Cambiar Conductor" : "Asignar Conductor"}
+                          {t.status === "canceled"
+                            ? "Reasignar Conductor"
+                            : t.assignedDriverId
+                            ? "Cambiar Conductor"
+                            : "Asignar Conductor"}
                         </Text>
                       </TouchableOpacity>
                     )}
-                    {onCancelAndResplitTrip && (
+                    {canResplit && onCancelAndResplitTrip && (
                       <TouchableOpacity
                         style={[styles.actionBtnSmall, styles.actionBtnDanger]}
                         onPress={() => onCancelAndResplitTrip(t)}

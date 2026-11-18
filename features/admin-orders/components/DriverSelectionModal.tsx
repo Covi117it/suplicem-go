@@ -71,26 +71,6 @@ export const DriverSelectionModal: React.FC<DriverSelectionModalProps> = ({
           </View>
 
           <ScrollView style={styles.driversList} showsVerticalScrollIndicator={false}>
-            {/* Opción Bolsa General */}
-            <TouchableOpacity
-              style={[styles.unassignedCard, !selectedDriverId && styles.selectedUnassignedCard]}
-              onPress={() => {
-                onSelectDriver("");
-                onClose();
-              }}
-            >
-              <Ionicons name="globe-outline" size={22} color={!selectedDriverId ? "#0F294A" : "#64748B"} />
-              <View style={styles.unassignedTextContainer}>
-                <Text style={styles.unassignedTitle}>Sin asignar (Bolsa general)</Text>
-                <Text style={styles.unassignedDesc}>Disponible para cualquier conductor que tenga capacidad.</Text>
-              </View>
-              <Ionicons
-                name={!selectedDriverId ? "radio-button-on" : "radio-button-off"}
-                size={20}
-                color={!selectedDriverId ? "#0F294A" : "#94A3B8"}
-              />
-            </TouchableOpacity>
-
             {/* Tarjetas de Conductores */}
             {drivers.map((drv) => (
               <DriverCardItem

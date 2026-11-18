@@ -18,6 +18,8 @@ export const DriverActiveTripScreen: React.FC = () => {
     location,
     expandedOrderIndex,
     isCancelModalVisible,
+    cancelReason,
+    setCancelReason,
     isDeliveryModalVisible,
     isPinModalVisible,
     setIsPinModalVisible,
@@ -102,8 +104,13 @@ export const DriverActiveTripScreen: React.FC = () => {
       <TripExecutionModals
         isCancelModalVisible={isCancelModalVisible}
         isDeliveryModalVisible={isDeliveryModalVisible}
+        cancelReason={cancelReason}
+        onCancelReasonChange={setCancelReason}
         onConfirmCancel={confirmCancelTrip}
-        onCloseCancel={() => setIsCancelModalVisible(false)}
+        onCloseCancel={() => {
+          setIsCancelModalVisible(false);
+          setCancelReason("");
+        }}
         onConfirmDelivery={handleSendDelivery}
         onCloseDelivery={() => setIsDeliveryModalVisible(false)}
       />

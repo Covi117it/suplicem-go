@@ -16,6 +16,8 @@ interface CancelTripModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   isSubmitting?: boolean;
+  title?: string;
+  subtitle?: string;
 }
 
 export const CancelTripModal: React.FC<CancelTripModalProps> = ({
@@ -25,6 +27,8 @@ export const CancelTripModal: React.FC<CancelTripModalProps> = ({
   onConfirm,
   onCancel,
   isSubmitting = false,
+  title = "Cancelar Viaje",
+  subtitle = "Debes ingresar un motivo o justificación (mínimo 5 caracteres) para cancelar este viaje. Las órdenes asociadas serán liberadas.",
 }) => {
   const trimmedLength = reason.trim().length;
   const isReasonInvalid = trimmedLength > 0 && trimmedLength < 5;
@@ -39,10 +43,8 @@ export const CancelTripModal: React.FC<CancelTripModalProps> = ({
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Cancelar Viaje</Text>
-          <Text style={styles.modalSubtitle}>
-            Debes ingresar un motivo o justificación (mínimo 5 caracteres) para cancelar este viaje. Las órdenes asociadas serán liberadas.
-          </Text>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.modalSubtitle}>{subtitle}</Text>
 
           <TextInput
             style={styles.modalInput}

@@ -9,6 +9,10 @@ import { Order } from "@/types/orders";
 import { User } from "@/types/users";
 import { ROLE } from "@/constants/UserConstants";
 import { TruckTripItem } from "../components/approval/TripTruckRow";
+import {
+  calculateTrucksOnAdd,
+  rebalanceTrucksOnRemove,
+} from "../utils/deliveryDistributionUtils";
 
 export interface DeliveryPlanState {
   id?: string;
@@ -143,19 +147,27 @@ export function useOrderApprovalPlanner(orderId: string) {
 
   const handleAddTruck = (delIdx: number) => {
     setDeliveriesPlan((prev) =>
-      prev.map((del, i) => (i !== delIdx ? del : {
-        ...del,
-        trucks: [...del.trucks, { id: `truck-${delIdx}-${del.trucks.length}-${Date.now()}`, totalTons: 10, deliveryId: del.id }],
-      }))
+      prev.map((del, i) =>
+        i !== delIdx
+          ? del
+          : {
+              ...del,
+              trucks: calculateTrucksOnAdd(del.trucks, del.totalTons, del.id, delIdx),
+            }
+      )
     );
   };
 
   const handleRemoveTruck = (delIdx: number, truckId: string) => {
     setDeliveriesPlan((prev) =>
-      prev.map((del, i) => (i !== delIdx || del.trucks.length <= 1 ? del : {
-        ...del,
-        trucks: del.trucks.filter((t) => t.id !== truckId),
-      }))
+      prev.map((del, i) =>
+        i !== delIdx || del.trucks.length <= 1
+          ? del
+          : {
+              ...del,
+              trucks: rebalanceTrucksOnRemove(del.trucks, del.totalTons, truckId),
+            }
+      )
     );
   };
 
@@ -198,6 +210,17 @@ export function useOrderApprovalPlanner(orderId: string) {
           });
           return;
         }
+      }
+
+      const hasUnassignedTrucks = deliveriesPlan.some((del) =>
+        del.trucks.some((t) => !t.driverId)
+      );
+      if (hasUnassignedTrucks) {
+        showAlert({
+          message: "Debes asignar un conductor a cada camión antes de confirmar la aprobación.",
+          type: "warning",
+        });
+        return;
       }
     }
 

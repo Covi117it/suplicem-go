@@ -111,7 +111,7 @@ export const ClientTripCard: React.FC<ClientTripCardProps> = ({
           <View style={styles.unassignedBox}>
             <Ionicons name="time-outline" size={18} color="#D97706" />
             <Text style={styles.unassignedText}>
-              Bolsa General • Chofer preparándose o por asignar
+              Chofer preparándose o por asignar
             </Text>
           </View>
         )}

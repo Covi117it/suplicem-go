@@ -4,10 +4,12 @@ import { AcceptedTripContext } from "@/context/TripContext";
 import { useLoading } from "@/context/loadingContext";
 import { useAlert } from "@/context/alertContext";
 import {
+  assignTripDriver,
   getDriverLocation,
   getTripDetail,
   updateTripStatus,
 } from "@/services/tripsService";
+import { getUsers } from "@/services/userService";
 
 export const useAdminTripDetail = () => {
   const router = useRouter();
@@ -21,8 +23,50 @@ export const useAdminTripDetail = () => {
   } | null>(null);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
+  const [isReassignModalVisible, setIsReassignModalVisible] = useState(false);
+  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
 
   const tripId = trip?.id;
+
+  const loadDrivers = useCallback(async () => {
+    try {
+      const res = await getUsers({ status: "active", userType: "driver" });
+      if (res?.users) {
+        setAvailableDrivers(res.users);
+      }
+    } catch (error) {
+      console.error("Error cargando conductores activos:", error);
+    }
+  }, []);
+
+  const handleReassignDriver = async (newDriverId: string) => {
+    if (!tripId || !newDriverId) return;
+    try {
+      show();
+      const res = await assignTripDriver(tripId, newDriverId);
+      if (res?.success) {
+        showAlert({
+          message: "Conductor asignado exitosamente al viaje.",
+          type: "success",
+        });
+        setIsReassignModalVisible(false);
+        await refreshTripData();
+      } else {
+        showAlert({
+          message: res?.message || "No se pudo asignar el conductor.",
+          type: "error",
+        });
+      }
+    } catch (err: any) {
+      console.error("Error al reasignar chofer:", err);
+      showAlert({
+        message: err?.message || "Error al asignar conductor al viaje.",
+        type: "error",
+      });
+    } finally {
+      hide();
+    }
+  };
 
   const refreshTripData = useCallback(async () => {
     if (!tripId) return;
@@ -156,5 +200,10 @@ export const useAdminTripDetail = () => {
     handleCancelTrip,
     handleForceCompleteTrip,
     isTerminalStatus,
+    isReassignModalVisible,
+    setIsReassignModalVisible,
+    availableDrivers,
+    loadDrivers,
+    handleReassignDriver,
   };
 };

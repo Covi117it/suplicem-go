@@ -132,7 +132,7 @@ export const DispatchFractionalTripModal: React.FC<DispatchFractionalTripModalPr
             <Text style={styles.driverPickerText}>
               {selectedDriver
                 ? `[${selectedDriver.driverCode || "COND"}] ${selectedDriver.names} ${selectedDriver.lastNames} (${driverCapacity.toFixed(2)} t)`
-                : "🌐 Sin asignar (Bolsa general)"}
+                : "Seleccionar Conductor"}
             </Text>
             <Ionicons name="chevron-forward" size={18} color="#64748B" />
           </TouchableOpacity>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -29,6 +29,39 @@ export const TripTruckRow: React.FC<Props> = ({
   canRemove,
 }) => {
   const estFundas = Math.round((truck.totalTons * 1000) / 42.5);
+  const [inputValue, setInputValue] = useState(String(truck.totalTons));
+
+  useEffect(() => {
+    const currentNum = parseFloat(inputValue.replace(",", ".")) || 0;
+    if (currentNum !== truck.totalTons) {
+      setInputValue(truck.totalTons === 0 ? "" : String(truck.totalTons));
+    }
+  }, [truck.totalTons]);
+
+  const handleChangeText = (text: string) => {
+    let clean = text.replace(",", ".").replace(/[^0-9.]/g, "");
+    const parts = clean.split(".");
+    if (parts.length > 2) {
+      clean = parts[0] + "." + parts.slice(1).join("");
+    }
+    setInputValue(clean);
+
+    if (clean === "" || clean === ".") {
+      onUpdateTons(0);
+    } else {
+      const val = parseFloat(clean);
+      if (!isNaN(val)) {
+        onUpdateTons(val);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    const val = parseFloat(inputValue.replace(",", ".")) || 0;
+    const formatted = val === 0 ? "0" : String(Number(val.toFixed(2)));
+    setInputValue(formatted);
+    onUpdateTons(Number(val.toFixed(2)));
+  };
 
   return (
     <View style={styles.container}>
@@ -59,12 +92,11 @@ export const TripTruckRow: React.FC<Props> = ({
 
             <TextInput
               style={styles.tonsInput}
-              keyboardType="numeric"
-              value={String(truck.totalTons)}
-              onChangeText={(text) => {
-                const val = parseFloat(text.replace(/[^0-9.]/g, "")) || 0;
-                onUpdateTons(val);
-              }}
+              keyboardType="decimal-pad"
+              value={inputValue}
+              onChangeText={handleChangeText}
+              onBlur={handleBlur}
+              selectTextOnFocus
             />
 
             <TouchableOpacity
@@ -100,7 +132,7 @@ export const TripTruckRow: React.FC<Props> = ({
               ]}
               numberOfLines={1}
             >
-              {truck.driverName || "Bolsa (Disponible)"}
+              {truck.driverName || "Seleccionar Conductor"}
             </Text>
           </TouchableOpacity>
         </View>
