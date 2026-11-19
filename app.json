@@ -78,7 +78,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Suplicem necesita acceso a tus fotos para adjuntar comprobantes de transferencia e identificación.",
-          "cameraPermission": "Suplicem necesita acceso a tu cámara para capturar comprobantes de pago y cédula."
+          "cameraPermission": "Suplicem necesita acceso a tu cámara para capturar comprobantes de pago y cédula.",
+          "microphonePermission": false
         }
       ],
       "expo-secure-store",
